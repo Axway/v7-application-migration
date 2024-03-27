@@ -125,10 +125,6 @@ The script ignore all application present in the Amplify Agent organization as t
 
 Once the mapping file is generated, it is highly recommended to review its content to ensure the found product and product plan are the one to use for the subscription. If something does not match, it may result in error in the migration script.
 
-TODO - cleanup
-create app directly in Amplify agent with convention: APP title - v7 APP name / APP logical name - (lowercase + -)(V7 APP)
--Grant app org to Access All API.-
-
 ### Step 3 - stop the Discovery and Traceability agents running in the environment
 
 In order to avoid the agent from provisioning the application that will be migrated, you should stop the Discovery and Traceability agents.
