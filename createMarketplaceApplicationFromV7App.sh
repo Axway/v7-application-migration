@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Sourcing user-provided env properties
-#source ./config/env.properties
-
 # add all utility functions
 source ./utils.sh
 
@@ -57,7 +54,7 @@ function createAmplifyAgentOrganizationIfNotExisting() {
 # - $2: v7OrganizationName
 # Output: TEAM_GUID in platform
 ####################################################################
-createTeamFromOrganizationNameIfNotExisting() {
+function createTeamFromOrganizationNameIfNotExisting() {
 
     local PLATFORM_ORGID=$1
     local TEAM_NAME=$2
@@ -81,6 +78,27 @@ createTeamFromOrganizationNameIfNotExisting() {
     echo "$TEAM_GUID"
 }
 
+######################################################
+# Granting Amplify Agents org the access to API
+#
+# Input:
+# - $1: ApiID
+# - $2: Anplify Agent orgqnization ID
+# Ouptut: None
+#######################################################
+function grantApiAccessToAmplifyAgentsOrganization () {
+
+    local V7_API_ID=$1
+    local AGENT_V7_ORG_ID=$2
+
+    echo "action=orgs&apiId=$V7_API_ID&grantOrgId=$AGENT_V7_ORG_ID" > $LOGS_DIR/api-$V7_API_ID-grantaccess.txt
+    postToApiManagerUrlEncoded "proxies/grantaccess" "$LOGS_DIR/api-$V7_API_ID-grantaccess.txt" "$LOGS_DIR/api-$V7_API_ID-grantaccess-done.json"
+
+    # cleanup intermediate files
+    rm -rf $LOGS_DIR/api-$V7_API_ID-grantaccess.txt
+    rm -rf $LOGS_DIR/api-$V7_API_ID-grantaccess-done.json
+}
+
 ############################################################
 # Creating the Markateplace Application if not existing yet
 #
@@ -89,7 +107,7 @@ createTeamFromOrganizationNameIfNotExisting() {
 # - $2: Owing team guid
 # Ouptut: Marketplace Application ID
 ############################################################"" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json"
-createMarketplaceApplicationIfNotExisting() {
+function createMarketplaceApplicationIfNotExisting() {
 
     local MKT_APP_NAME="$1"
     local OWNING_TEAM_GUID="$2"
@@ -135,7 +153,7 @@ createMarketplaceApplicationIfNotExisting() {
 # - $6: Product ID
 # Output: Subscription ID
 ####################################################################
-createMarketplaceSubscriptionIfNotExisting() {
+function createMarketplaceSubscriptionIfNotExisting() {
 
     local TEAM_NAME=$1
     local TEAM_GUID=$2
@@ -184,7 +202,7 @@ createMarketplaceSubscriptionIfNotExisting() {
 # - $7: Marketplace application ID
 # Output: ACCESS_REQUEST_ID
 #####################################################################
-createMarketplaceAccessRequestIfNotExisting() {
+function createMarketplaceAccessRequestIfNotExisting() {
 
     local V7_APP_NAME=$1
     local V7_API_NAME=$2
@@ -235,7 +253,7 @@ createMarketplaceAccessRequestIfNotExisting() {
 # - $1: subscription ID
 # Output: None
 #############################
-approveSubscription() {
+function approveSubscription() {
 
     local SUBSCRIPTION_ID=$1
 
@@ -270,7 +288,7 @@ approveSubscription() {
 # - $1: V7 application name
 # Output: ACCESS_REQUEST_ID
 #####################################################################
-approveAndProvisionMarketplaceAccessRequest() {
+function approveAndProvisionMarketplaceAccessRequest() {
 
     local V7_APP_NAME=$1
     local V7_APP_ID=$2
@@ -314,6 +332,12 @@ approveAndProvisionMarketplaceAccessRequest() {
     rm -rf $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-finalizer.json
     rm -rf $LOGS_DIR/agent-access-details-$V7_APP_ID.json
     rm -rf $LOGS_DIR/agent-status-success.json
+}
+
+
+function moveV7appToAmplifyAgentsOrganization() {
+
+    echo "TODO moveV7appToAmplifyAgentsOrganization"
 }
 
 ########################################################
@@ -392,6 +416,11 @@ migrate_v7_application() {
 
                     if [[ $PRODUCT_NAME != "" && $PRODUCT_PLAN_NAME != "" ]] 
                     then
+                        # Grant access to the API to Amplify Agents org
+                        echo "          Granting Amplify Agents org accees to API $V7_API_ID..."
+                        grantApiAccessToAmplifyAgentsOrganization "$V7_API_ID" "$AGENT_V7_ORG_ID"
+                        echo "          Access granted."
+
                         # read product ID
                         echo "          Reading productId fron productName=$PRODUCT_NAME" >&2
                         MP_PRODUCT_IDENTIFIERS=$(getMarketplaceProductIdFromProductName "$PRODUCT_NAME")
@@ -420,13 +449,6 @@ migrate_v7_application() {
                         echo "          Approving and Provisioning the Access Request..." >&2
                         PROVIDER_ACCESS_REQUEST=$(approveAndProvisionMarketplaceAccessRequest "$V7_APP_NAME" "$V7_APP_ID" "$V7_API_ID" "$MKT_ACCESS_REQUEST_TITLE")
                         echo "          Access Request activated." >&2
-
-                        echo "          Provisioning the Credentials..." >&2
-                        echo "          Access Request activated." >&2
-
-                        echo "          Update ManageApp with the V7 APP ID..." >&2
-                        echo "          Done." >&2
-
                     else
                         echo "          /!\ productName and/or planName for application ($V7_APP_NAME) and api ($V7_API_NAME) are not defined in the mapping, cannot proceed farther" >&2
                     fi
@@ -438,12 +460,14 @@ migrate_v7_application() {
 
                 echo "          Creating credentials APIKEYS for application $V7_APP_NAME" >&2
                 #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/4b3c2933-4307-44c1-aad3-51c2ee48a85a/apikeys
-                createAndProvisionCredential
+                #createAndProvisionCredential
                 echo "          Creating credentials OAUTH for application $V7_APP_NAME" >&2
                 #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/4b3c2933-4307-44c1-aad3-51c2ee48a85a/oauth
                 echo "          Creating credentials EXTERNAL for application $V7_APP_NAME" >&2
                 #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/4b3c2933-4307-44c1-aad3-51c2ee48a85a/extclients
 
+                ## Update V7 application: move it to Amplify Agents org / update its name so that TA still work
+                moveV7appToAmplifyAgentsOrganization
             else
                 echo "      /!\ No mapping found... Cannot proceed farther" >&2
             fi
@@ -470,8 +494,10 @@ echo ""
 
 if [[ $1 != null ]]
 then
+    # supplied config file
     source $1
 else 
+    # default env config file
     source ./Config/env.properties
 fi
 

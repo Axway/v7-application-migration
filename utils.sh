@@ -130,7 +130,33 @@ getAPIM_APIName()
 
 
 ##########################################################
-# Psotting data to the AMPI Manager                      #
+# Postting data to the AMPI Manager                      #
+#                                                        #
+# $1: url to call                                        #
+# $2: payload                                            #
+# $3: output file                                        #
+##########################################################
+function postToApiManagerUrlEncoded() {
+
+    ENDPOINT=$1
+
+    # encode user/password
+    AUTH=$(echo -ne "$APIMANAGER_USER:$APIMANAGER_PASSWORD" | base64 --wrap 0)
+
+	if [[ $3 == "" ]]
+	then 
+		# just in case...
+		outputFile=postToApiManager.json
+	else
+		outputFile=$3
+	fi
+
+    curl -s -k -H "Content-Type: application/x-www-form-urlencoded" -H "Authorization: Basic $AUTH" https://$APIMANAGER_HOST:$APIMANAGER_PORT/api/portal/$APIMANAGER_API_VERSION/$ENDPOINT -d "`cat $2`"> "$outputFile"
+
+}
+
+##########################################################
+# Postting data to the AMPI Manager                      #
 #                                                        #
 # $1: url to call                                        #
 # $2: payload                                            #
