@@ -1,0 +1,32 @@
+[
+    {
+        "ApplicationName": "v7 APPLICATION NAME 1",
+        "owningConsumerTeam": "TEAM WHO IS OWNING THE SUBSCRIPTION",
+        "Mapping": [
+            {
+                "apiName": "v7 API NAME 1",
+                "productName": "MARKETPLACE PRODUCT NAME",
+                "planName": "MARKETPLACE PRODUCT PLAN NAME",
+                "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED"
+            },
+            {
+                "apiName": "v7 API NAME 2",
+                "productName": "",
+                "planName": "MARKETPLACE PRODUCT PLAN NAME",
+                "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED"
+            }
+        ]
+    },
+    {
+        "ApplicationName": "v7 APPLICATION NAME 2",
+        "owningConsumerTeam": "TEAM WHO IS OWNING THE SUBSCRIPTION",
+        "Mapping": [
+            {
+                "apiName": "v7 API NAME 1",
+                "productName": "MARKETPLACE PRODUCT NAME",
+                "planName": "MARKETPLACE PRODUCT PLAN NAME",
+                "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED"
+            }
+        ]
+    }
+]
