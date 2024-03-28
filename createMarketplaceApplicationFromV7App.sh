@@ -28,7 +28,7 @@ function createAmplifyAgentOrganizationIfNotExisting() {
     then
         echo "$ORG_NAME organization does not exist yet, creating it..." >&2
         jq -n -f ./jq/agent-organization.jq --arg organizationName "$ORG_NAME" > $LOGS_DIR/agent-organization.json
-        postToApiManager "organizations" "$LOGS_DIR/agent-organization.json" "$LOGS_DIR/agent-organization-created.json"
+        postToApiManagerJson "organizations" "$LOGS_DIR/agent-organization.json" "$LOGS_DIR/agent-organization-created.json"
 
         # get the ORG_ID
         ORG_ID=$(cat $LOGS_DIR/agent-organization-created.json | jq -rc '.id')
@@ -106,7 +106,7 @@ function grantApiAccessToAmplifyAgentsOrganization () {
 # - $1: Application Name
 # - $2: Owing team guid
 # Ouptut: Marketplace Application ID
-############################################################"" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json"
+############################################################
 function createMarketplaceApplicationIfNotExisting() {
 
     local MKT_APP_NAME="$1"
@@ -139,6 +139,59 @@ function createMarketplaceApplicationIfNotExisting() {
     fi
 
     echo "$MP_APPLICATION_ID"
+}
+
+#####################################################################
+# approve and provision the managed application on the provider side
+# so that the agents knows about it
+#
+# Input:
+# - $1: Marketplace Application ID
+# - $2: APIM ApplicationID
+# Output:
+#####################################################################
+function approveAndPropvisionMarketplaceApplication() {
+
+    local MKT_APP_ID=$1
+    local V7_APP_ID=$2
+
+    # find the managedApplication corresponding to the Marketplace application
+    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" ".[].name" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
+
+    # read existing information for the post (AccReq name + environment name)
+    MANAGED_APP_NAME=$(cat $LOGS_DIR/app-managedapp-$MKT_APP_ID.json | jq -rc '.[].name')
+    MANAGED_APP_ENVIRONMENT_NAME=$(cat $LOGS_DIR/app-managedapp-$MKT_APP_ID.json | jq -r '.[].metadata.scope.name')
+
+    # mark it as provisioned (add the finalizers)
+    jq --slurpfile file2 ./jq/agent-app-finalizer.json '(.[].finalizers += $file2)' $LOGS_DIR/app-managedapp-$MKT_APP_ID.json > $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json
+
+    # Remove references and status
+    echo $(cat $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )') > $LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json
+    
+    # Post to Central
+    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated.json"
+    error_exit "Problem while updating the managedApplication agent information..." $LOGS_DIR/app-managedapp-$MKT_APP_ID-updated.json
+
+    # adding x-agent-details
+    jq -n -f ./jq/agent-app-details.jq --arg applicationID $V7_APP_ID --arg applicationName $MANAGED_APP_NAME > $LOGS_DIR/agent-access-details-$MKT_APP_ID.json
+
+    # Post to Central
+    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME/x-agent-details" "$LOGS_DIR/agent-access-details-$MKT_APP_ID.json" " $LOGS_DIR/app-managedapp-$MKT_APP_ID-agent-details.json"
+    error_exit "Problem while updating the agent details info..." $LOGS_DIR/app-managedapp-$MKT_APP_ID-agent-details.json
+
+    # Update status
+    # mark it as done -> level = SUCCESS
+    TIMESTAMP=$(date --utc +%FT%T.%3N%z)
+    jq -n -f ./jq/agent-status-success.jq --arg timestampUTC "$TIMESTAMP" > $LOGS_DIR/agent-status-success.json
+    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME/status" "$LOGS_DIR/agent-status-success.json" " $LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json"
+    error_exit "Problem while updating the access request status..." $LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json
+
+    #clean up intermediate files
+    rm -rf $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json
+    rm -rf $LOGS_DIR/agent-access-details-$MKT_APP_ID.json
+    rm -rf $LOGS_DIR/agent-status-success.json
+
+set +x
 }
 
 ####################################################################
@@ -282,7 +335,8 @@ function approveSubscription() {
 }
 
 #####################################################################
-# Create the marketplace access request based on the APP-API linkage
+# Approve and provision the access request and add the finalizers
+# so that the agent is aware of it
 #
 # Input:
 # - $1: V7 application name
@@ -305,7 +359,7 @@ function approveAndProvisionMarketplaceAccessRequest() {
     ACCESS_REQUEST_ENVIRONMENT_NAME=$(cat $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED.json | jq -r '.[].metadata.scope.name')
 
     # mark it as provisioned (add the finalizers)
-    jq --slurpfile file2 ./jq/agent-finalizer.json '(.[].finalizers += $file2)' $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED.json > $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-finalizer.json
+    jq --slurpfile file2 ./jq/agent-accreq-finalizer.json '(.[].finalizers += $file2)' $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED.json > $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-finalizer.json
 
     # Remove references and status
     echo $(cat $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-finalizer.json  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )') > $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-update.json
@@ -335,9 +389,40 @@ function approveAndProvisionMarketplaceAccessRequest() {
 }
 
 
+#####################################################
+# Move v7 Application to Amplify Agents organization
+# and remame it as TA expects it
+#
+# Input:
+#  - $1: Original application name
+#  - $2: Marketplace application ID
+#  - $3: New organization ID
+# Output: None
+#####################################################
 function moveV7appToAmplifyAgentsOrganization() {
 
-    echo "TODO moveV7appToAmplifyAgentsOrganization"
+    local V7_APPLICATION_NAME_TO_MIGRATE=$1
+    local V7_APPLICATION_ID=$2
+    local MKT_APP_ID=$3
+    local AGENT_V7_ORG_ID=$4
+
+    echo "              Finding the new name for $V7_APPLICATION_NAME_TO_MIGRATE" >&2
+    # read ManagedApplication logical name based on the Marketplace application ID
+    MANAGED_APP_NAME=$(getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" ".[].name" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json")
+    echo "              New name found: $MANAGED_APP_NAME"
+
+    # read it and replace name and organizationID
+    echo "              Updating $V7_APPLICATION_NAME_TO_MIGRATE to $MANAGED_APP_NAME..." >&2
+    cat $TEMP_FILE | jq  '[.[] | select(.name=="'"$V7_APPLICATION_NAME_TO_MIGRATE"'")]' | jq -rc '.[]' | jq '.name="'$MANAGED_APP_NAME'"' | jq '.organizationId="'$AGENT_V7_ORG_ID'"' > $LOGS_DIR/app-move.json
+
+    # put it
+    putToApiManager "applications/$V7_APP_ID" "$LOGS_DIR/app-move.json" "$LOGS_DIR/app-move-result.json"
+    echo "              $MANAGED_APP_NAME created and moved into Amplify Agents organization" >&2
+
+    # clean up intermediate files
+    rm -rf $LOGS_DIR/app-managedapp-$MKT_APP_ID.json
+    rm -rf $LOGS_DIR/app-move.json
+    rm -rf $LOGS_DIR/app-move-result.json
 }
 
 ########################################################
@@ -455,6 +540,11 @@ migrate_v7_application() {
 
                 done
 
+                # provison the ManageApplication - created only once an accessrequest is added to the application
+                echo "      Provisioning the corresponding Managed application...." 
+                approveAndPropvisionMarketplaceApplication "$MKT_APP_ID" "$V7_APP_ID"
+                echo "      Managed Application provisioning done." 
+
                 # creating credentials
                 echo "      Creating credentials for application $V7_APP_NAME" >&2
 
@@ -467,7 +557,9 @@ migrate_v7_application() {
                 #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/4b3c2933-4307-44c1-aad3-51c2ee48a85a/extclients
 
                 ## Update V7 application: move it to Amplify Agents org / update its name so that TA still work
-                moveV7appToAmplifyAgentsOrganization
+                echo "      Updating v7 application $V7_APP_NAME...."
+                moveV7appToAmplifyAgentsOrganization "$V7_APP_NAME" "$V7_APP_ID" "$MKT_APP_ID" "$AGENT_V7_ORG_ID"
+                echo "      v7 application $V7_APP_NAME updated and move to the Amplify Agents organization"
             else
                 echo "      /!\ No mapping found... Cannot proceed farther" >&2
             fi

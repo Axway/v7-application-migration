@@ -130,7 +130,34 @@ getAPIM_APIName()
 
 
 ##########################################################
-# Postting data to the AMPI Manager                      #
+# Putting data to the AMPI Manager                       #
+#                                                        #
+# $1: url to call                                        #
+# $2: payload                                            #
+# $3: output file                                        #
+##########################################################
+function putToApiManager() {
+
+    ENDPOINT=$1
+
+    # encode user/password
+    AUTH=$(echo -ne "$APIMANAGER_USER:$APIMANAGER_PASSWORD" | base64 --wrap 0)
+
+	if [[ $3 == "" ]]
+	then 
+		# just in case...
+		outputFile=postToApiManager.json
+	else
+		outputFile=$3
+	fi
+
+    curl -s -X PUT -k -H "Content-Type: application/json" -H "Authorization: Basic $AUTH" https://$APIMANAGER_HOST:$APIMANAGER_PORT/api/portal/$APIMANAGER_API_VERSION/$ENDPOINT -d "`cat $2`"> "$outputFile"
+
+}
+
+
+##########################################################
+# Posting data to the AMPI Manager                       #
 #                                                        #
 # $1: url to call                                        #
 # $2: payload                                            #
@@ -138,46 +165,37 @@ getAPIM_APIName()
 ##########################################################
 function postToApiManagerUrlEncoded() {
 
-    ENDPOINT=$1
+	postToApiManagerWithHeader $1 $2 "application/x-www-form-urlencoded" $3
+}
 
-    # encode user/password
-    AUTH=$(echo -ne "$APIMANAGER_USER:$APIMANAGER_PASSWORD" | base64 --wrap 0)
-
-	if [[ $3 == "" ]]
-	then 
-		# just in case...
-		outputFile=postToApiManager.json
-	else
-		outputFile=$3
-	fi
-
-    curl -s -k -H "Content-Type: application/x-www-form-urlencoded" -H "Authorization: Basic $AUTH" https://$APIMANAGER_HOST:$APIMANAGER_PORT/api/portal/$APIMANAGER_API_VERSION/$ENDPOINT -d "`cat $2`"> "$outputFile"
-
+function postToApiManagerJson() {
+	postToApiManagerWithHeader $1 $2 "application/json" $3
 }
 
 ##########################################################
-# Postting data to the AMPI Manager                      #
+# Posting data to the AMPI Manager                       #
 #                                                        #
 # $1: url to call                                        #
 # $2: payload                                            #
-# $3: output file                                        #
+# $3: spectif Header content type                        #
+# $4: output file                                        #
 ##########################################################
-function postToApiManager() {
+function postToApiManagerWithHeader() {
 
     ENDPOINT=$1
 
     # encode user/password
     AUTH=$(echo -ne "$APIMANAGER_USER:$APIMANAGER_PASSWORD" | base64 --wrap 0)
 
-	if [[ $3 == "" ]]
+	if [[ $4 == "" ]]
 	then 
 		# just in case...
 		outputFile=postToApiManager.json
 	else
-		outputFile=$3
+		outputFile=$4
 	fi
 
-    curl -s -k -H "Content-Type: application/json" -H "Authorization: Basic $AUTH" https://$APIMANAGER_HOST:$APIMANAGER_PORT/api/portal/$APIMANAGER_API_VERSION/$ENDPOINT -d "`cat $2`"> "$outputFile"
+    curl -s -k -H "Content-Type: $3" -H "Authorization: Basic $AUTH" https://$APIMANAGER_HOST:$APIMANAGER_PORT/api/portal/$APIMANAGER_API_VERSION/$ENDPOINT -d "`cat $2`"> "$outputFile"
 
 }
 
