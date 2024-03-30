@@ -7,10 +7,10 @@
 function error_exit {
    if [ $? -ne 0 ]
    then
-      echo "$1"
+      echo "$1" >&2 
       if [ $2 ]
       then
-         echo "See $2 file for errors"
+         echo "See $2 file for errors" >&2 
       fi
 	  error=1
       exit 1
@@ -111,6 +111,8 @@ getAPIM_OrganizationName()
 
     retVal=$(getFromApiManager "organizations/$V7_ORGID" "$LOGS_DIR/organization.json" ".name")
     
+	rm -rf $LOGS_DIR/organization.json
+    
     echo "$retVal"
 }
 
@@ -124,6 +126,8 @@ getAPIM_APIName()
     V7_API_ID=$1
 
     retVal=$(getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json" ".name")
+
+	rm -rf $LOGS_DIR/api-$V7_API_ID.json
     
     echo "$retVal"
 }
@@ -451,15 +455,15 @@ sanitizeName() {
     echo $SANITIZED_NAME
 }
 
-#############################################
-# Sanitize name and remove space, backslash
+######################################################
+# Sanitize name by replacing space with HTML Code %20
 # Input: String
 # Output: Sanitized String
-#############################################
+######################################################
 sanitizeNameForQuery() {
 
     INPUT="$1"
-    # replace ' ' with '-'
+    # replace ' ' with '%20'
     SANITIZED_NAME=${INPUT// /%20}
 
     echo $SANITIZED_NAME
