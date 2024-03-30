@@ -10,7 +10,7 @@ The migration from Axway API Manager to the Enterprise Marketplace, consists of 
 The script needs to be run in a machine where Axway API MAnager and Amplify Entreprise Marketplace are accessible via their respective APIs.
 
 But before you start with the migration, we recommend you get yourself familiarized with the Amplify Enterprise Marketplace.
-Please take a moment to watch our Enterprise Marketplace intro tutorial at https://university.axway.com/learn/courses/11665/introduction-to-amplify-enterprise-marketplace. You can also access our documentation at https://docs.axway.com/bundle/amplify-central/page/docs/index.html.
+Please take a moment to watch our Enterprise Marketplace intro tutorial at <https://university.axway.com/learn/courses/11665/introduction-to-amplify-enterprise-marketplace>. You can also access our documentation at <https://docs.axway.com/bundle/amplify-central/page/docs/index.html>.
 
 ## Pre-requisits
 
@@ -124,6 +124,18 @@ The output file is defaulted to: `./Mapping/mappingAPP-product-generated.json`. 
 The script ignore all application present in the Amplify Agent organization as those one are already managed by the Discovery Agent.
 
 Once the mapping file is generated, it is highly recommended to review its content to ensure the found product and product plan are the one to use for the subscription. If something does not match, it may result in error in the migration script.
+
+During the mapping creation, it is possible to receive **Warning** message:
+
+1. API (`V7_API_NAME`) not found. Please check that Discovery Agent has discovered API (`V7_API_NAME`)
+2. API (`V7_API_NAME`) has been found multiple times. Please remove any duplicate prior to proceed. to keep only one version.
+3. API (`V7_API_NAME`) does not contain the correct API Manager API ID. Either the API has not been discovered or the agent is too old.
+4. No asset is managing `V7_API_NAME`... You need to have at least one asset/product/plan to run the migration.
+5. API (`V7_API_NAME`) is embedded in multiple assets. Mapping file not updated
+6. API (`V7_API_NAME`) is part of an asset (`ASSET_NAME`) that is not embed in any product.
+7. API (`V7_API_NAME`) is part of an asset (`ASSET_NAME`) that is embed in multiple products.
+
+For all these warning, `TBD` will be added in the mapping file under `productName` or `planName` or `environment` variable. If you choose to ignore those warning, the migration for the specific application will not be complete.
 
 ### Step 3 - stop the Discovery and Traceability agents running in the environment
 
