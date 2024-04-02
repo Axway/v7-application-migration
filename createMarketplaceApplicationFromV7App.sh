@@ -190,8 +190,6 @@ function approveAndPropvisionMarketplaceApplication() {
     rm -rf $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json
     rm -rf $LOGS_DIR/agent-access-details-$MKT_APP_ID.json
     rm -rf $LOGS_DIR/agent-status-success.json
-
-set +x
 }
 
 ####################################################################
