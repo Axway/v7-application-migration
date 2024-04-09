@@ -1,3 +1,9 @@
+CREDENTIAL_TYPE_APIKEY="APIKEY"
+CREDENTIAL_TYPE_OAUTH="OAUTH"
+CREDENTIAL_TYPE_EXTERNAL="EXTERNAL"
+CREDENTIAL_DEFINTION_NONE="None"
+TBD_VALUE="TBD"
+
 #########################################
 # Error management after a command line 
 # $1: error message
@@ -24,10 +30,9 @@ function error_exit {
 ######################################
 function error_post {
 	# search in input file if there are some errors
-
 	if [ $2 ] # safe guard
 	then
-		errorFound=`cat $2 | jq -r ".errors"`
+		errorFound=`cat $2 | jq -r '.errors'`
 		if [[ $errorFound != null ]]
 		then
 			echo "$1. Please check file $2"
@@ -35,7 +40,6 @@ function error_post {
 			exit 1
 		fi
 	fi
-
 }
 
 ############################
@@ -132,6 +136,35 @@ getAPIM_APIName()
     echo "$retVal"
 }
 
+
+################################################
+# Retrieve specific credential for a given APP 
+# 
+# Input:
+# - $1: Application ID
+# - $2: credentials type (APIKEY / OAUTH / EXTERNAL)
+# - $3: output file
+################################################
+function getAPIM_Credentials() {
+	local V7_APP_ID=$1
+	local V7_CREDENTIAL_TYPE=$2
+	local OUTPUT_FILE=$3
+	local ENDPOINT=""
+
+    case $V7_CREDENTIAL_TYPE in
+        "$CREDENTIAL_TYPE_APIKEY")
+            ENDPOINT="applications/$V7_APP_ID/apikeys"
+            ;;
+        "$CREDENTIAL_TYPE_OAUTH")
+            ENDPOINT="applications/$V7_APP_ID/oauth"            
+            ;;
+        "$CREDENTIAL_TYPE_EXTERNAL")
+            ENDPOINT="applications/$V7_APP_ID/extclients"
+			;;
+    esac
+
+	getFromApiManager "$ENDPOINT" "$OUTPUT_FILE" ""
+}
 
 ##########################################################
 # Putting data to the AMPI Manager                       #
@@ -327,7 +360,7 @@ function postToMarketplace() {
 	if [[ $3 == "" ]]
 	then 
 		# just in case...
-		outputFile=postToMarketplaceResult.json
+		outputFile=$LOGS_DIR/postToMarketplaceResult.json
 	else
 		outputFile=$3
 	fi
@@ -413,10 +446,10 @@ function putToCentral() {
 # 2_PARAM - #APiKey and Internal Oauth - ID Secret (ex. ./hasher 2abfcd4d-92a9-4b64-b32e-fa945325ada7 4e0b8030-3feb-4dd4-b98c-6ce60654e9e4) 
 # 3_PARAM - #External Oauth - ID --- ClientID (ex. ./hasher  2abfcd4d-92a9-4b64-b32e-fa945325ada7 - 4e0b8030-3feb-4dd4-b98c-6ce60654e9e4)
 # Input parameters
-# - type of Credential - 3_PARM or 2_PARAM
+# - type of Credential - 3_PARAM or 2_PARAM
 # - CREDENTIAL_ID
 # - CREDENTIAL_ID_SECRET
-# Output - that corresponding hash
+# Output - the corresponding hash
 #############################
 hashingCredentialValue() {
 
