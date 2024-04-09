@@ -1,5 +1,6 @@
 {
   "productName": $productName,
   "productPlanName": $productPlanName,
-  "apiEnvironmentName": $environmentName
+  "apiEnvironmentName": $environmentName,
+  "credentialRequestDefinition": $credentialRequestDefinition
 }
