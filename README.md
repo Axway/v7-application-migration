@@ -64,6 +64,7 @@ The following table shows the mapping between Axway API Manager Application and 
 |  Product name                        | Product ID               |                         | Product ID                 |                        |
 |                                      |                          |                         | Product version ID         |                        |
 |  Plan name                           | Plan ID                  |                         |                            |                        |
+|  CredentialRequestDefinition         |                          |                         |                            | CRD_ID                 |
 
 ## Migration steps
 
