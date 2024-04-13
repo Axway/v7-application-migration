@@ -103,13 +103,15 @@ For each application, we have the owning team (could be empty and the migration 
             "apiName": "v7 API NAME 1",
             "productName": "MARKETPLACE PRODUCT NAME",
             "planName": "MARKETPLACE PRODUCT PLAN NAME",
-            "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED"
+            "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
+            "credentialRequestDefinitionId": "CRD ID for MKT - coming from AssetResources.CRD"
         },
         {
             "apiName": "v7 API NAME 2",
             "productName": "",
             "planName": "MARKETPLACE PRODUCT PLAN NAME",
-            "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED"
+            "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
+            "credentialRequestDefinitionId": "CRD ID for MKT - coming from AssetResources.CRD"
         }
     ],
 }

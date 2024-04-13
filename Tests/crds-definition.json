@@ -1,0 +1,180 @@
+[
+  {
+    "group": "catalog",
+    "apiVersion": "v1alpha1",
+    "kind": "CredentialRequestDefinition",
+    "name": "oauth-secret",
+    "title": "OAuth Client ID & Secret",
+    "metadata": {
+      "id": "8a2e8fa4801f983b0180202bca120494",
+      "audit": {
+        "createTimestamp": "2022-04-12T23:46:22.354+0000",
+        "createUserId": "DOSA_f0ee863eed9d4515a81bc26530683455",
+        "modifyTimestamp": "2024-04-09T13:52:30.457+0000",
+        "modifyUserId": "service-account-c9c566f7-2f15-4bce-b073-3893e26e6e30"
+      },
+      "scope": {
+        "id": "8a2e8fa4801f983b0180202bc3c2048a",
+        "kind": "AuthorizationProfile",
+        "name": "emotional-salesman",
+        "title": "emotional-salesman",
+        "selfLink": "/catalog/v1alpha1/authprofiles/emotional-salesman"
+      },
+      "acl": [
+        {
+          "subjectType": "team",
+          "subjectId": "d9120f39-88d1-4977-bc56-5dd7d7335a18",
+          "aclId": "8a2e81a186977dac0186b755d3d92c79",
+          "scopedResourceKind": "CredentialRequestDefinition",
+          "scopedResourceName": "oauth-secret",
+          "scopedResourceOwnerId": "*"
+        },
+        {
+          "subjectType": "team",
+          "subjectId": "d9120f39-88d1-4977-bc56-5dd7d7335a18",
+          "aclId": "8a2e81a186977dac0186b73cc5af2a87",
+          "scopedResourceKind": "CredentialRequestDefinition",
+          "scopedResourceName": "oauth-secret",
+          "scopedResourceOwnerId": "*"
+        },
+        {
+          "subjectType": "team",
+          "subjectId": "d9120f39-88d1-4977-bc56-5dd7d7335a18",
+          "aclId": "8a2e861e8dc874f0018dc9ccc9f20126",
+          "scopedResourceKind": "CredentialRequestDefinition",
+          "scopedResourceName": "oauth-secret",
+          "scopedResourceOwnerId": "*"
+        }
+      ],
+      "accessRights": {
+        "canChangeOwner": true,
+        "canDelete": true,
+        "canWrite": true,
+        "canRead": true
+      },
+      "resourceVersion": "185",
+      "references": [
+        {
+          "id": "8a2e81f0801f99650180202bc579057f",
+          "kind": "CredentialRequestDefinition",
+          "name": "oauth-secret",
+          "scopeKind": "Environment",
+          "scopeName": "apigtw-v77",
+          "selfLink": "/management/v1alpha1/environments/apigtw-v77/credentialrequestdefinitions/oauth-secret",
+          "type": "hard",
+          "group": "management"
+        }
+      ],
+      "selfLink": "/catalog/v1alpha1/authprofiles/emotional-salesman/credentialrequestdefinitions/oauth-secret"
+    },
+    "attributes": {},
+    "finalizers": [],
+    "tags": [],
+    "spec": {
+      "schema": {
+        "type": "object",
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "required": [
+          "applicationType"
+        ],
+        "properties": {
+          "cors": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "title": ""
+                }
+              ]
+            },
+            "title": "Javascript Origins",
+            "uniqueItems": true
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "resource.READ",
+                    "resource.WRITE"
+                  ],
+                  "type": "string",
+                  "title": ""
+                }
+              ]
+            },
+            "title": "Scopes",
+            "uniqueItems": true
+          },
+          "redirectURLs": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "title": ""
+                }
+              ]
+            },
+            "title": "Redirect URLs",
+            "uniqueItems": true
+          },
+          "applicationType": {
+            "enum": [
+              "Confidential",
+              "Public"
+            ],
+            "type": "string",
+            "title": "Application Type"
+          }
+        },
+        "description": "",
+        "x-axway-order": [
+          "cors",
+          "applicationType",
+          "redirectURLs",
+          "scopes"
+        ]
+      },
+      "provision": {
+        "schema": {
+          "type": "object",
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "required": [
+            "clientId",
+            "clientSecret"
+          ],
+          "properties": {
+            "clientId": {
+              "type": "string",
+              "title": "Client ID",
+              "x-axway-copyable": true
+            },
+            "clientSecret": {
+              "type": "string",
+              "title": "Client Secret",
+              "x-axway-encrypted": true
+            }
+          },
+          "description": "",
+          "x-axway-order": [
+            "clientId",
+            "clientSecret"
+          ]
+        },
+        "policies": {
+          "expiry": {
+            "period": 60
+          },
+          "renewable": true,
+          "suspendable": true
+        }
+      }
+    },
+    "references": {
+      "credentialReqDef": "management/apigtw-v77/oauth-secret"
+    }
+  }
+]

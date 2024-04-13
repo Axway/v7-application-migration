@@ -10,7 +10,6 @@ CONFIG_DIR=./Config
 MAPPING_DIR=./Mapping
 TEMP_FILE=$LOGS_DIR/applicationToMigrate.json
 
-
 ####################################################################
 # Create the Amplify Agents organization that host the applications
 # 
@@ -130,13 +129,16 @@ function createMarketplaceApplicationIfNotExisting() {
 
         # we can create it
         echo "      No it does not, creating application $MKT_APP_NAME..." >&2
-        jq -n -f ./jq/mkt-application.jq --arg applicationTitle "$MKT_APP_NAME" --arg teamId $OWNING_TEAM_GUID > $LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED.json
-        postToMarketplace "$MARKETPLACE_URL/api/v1/applications" $LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED.json $LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-created.json
+        jq -n -f ./jq/mkt-application.jq --arg applicationTitle "$MKT_APP_NAME" --arg teamId $OWNING_TEAM_GUID > "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED.json"
+        postToMarketplace "$MARKETPLACE_URL/api/v1/applications" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED.json" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-created.json"
         echo "      Application $MKT_APP_NAME created on Marketplace" >&2
         MP_APPLICATION_ID=`cat $LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-created.json | jq -r '.id'`
     else
         echo "      Application already exist in Marketplace." >&2
     fi
+
+    # clean up temporary files
+    rm -rf "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED*"
 
     echo "$MP_APPLICATION_ID"
 }
@@ -150,13 +152,13 @@ function createMarketplaceApplicationIfNotExisting() {
 # - $2: APIM ApplicationID
 # Output:
 #####################################################################
-function approveAndPropvisionMarketplaceApplication() {
+function providerProvisionManagedApplication() {
 
     local MKT_APP_ID=$1
     local V7_APP_ID=$2
 
     # find the managedApplication corresponding to the Marketplace application
-    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" ".[].name" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
+    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
 
     # read existing information for the post (AccReq name + environment name)
     MANAGED_APP_NAME=$(cat $LOGS_DIR/app-managedapp-$MKT_APP_ID.json | jq -rc '.[].name')
@@ -166,7 +168,7 @@ function approveAndPropvisionMarketplaceApplication() {
     jq --slurpfile file2 ./jq/agent-app-finalizer.json '(.[].finalizers += $file2)' $LOGS_DIR/app-managedapp-$MKT_APP_ID.json > $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json
 
     # Remove references and status
-    echo $(cat $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )') > $LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json
+    cat $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )' > $LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json
     
     # Post to Central
     putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated.json"
@@ -187,7 +189,7 @@ function approveAndPropvisionMarketplaceApplication() {
     error_exit "Problem while updating the access request status..." $LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json
 
     #clean up intermediate files
-    rm -rf $LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json
+    rm -rf $LOGS_DIR/app-managedapp-$MKT_APP_ID*.json
     rm -rf $LOGS_DIR/agent-access-details-$MKT_APP_ID.json
     rm -rf $LOGS_DIR/agent-status-success.json
 }
@@ -214,6 +216,8 @@ function createMarketplaceSubscriptionIfNotExisting() {
     local MP_PRODUCT_ID=$6
     local SUBSCRIPTION_TITLE="$PRODUCT_NAME - $PRODUCT_PLAN_NAME"
     local SANITIZE_PRODUCT_NAME=$(sanitizeName $PRODUCT_NAME)
+    # we assume a subscription does not exist
+    local CAN_CREATE_SUBSCRIPTION=1
 
     echo "              Checking if owning team ($TEAM_NAME) already has a subscription for product ($MP_PRODUCT_NAME) using plan ($MP_PRODUCT_PLAN_NAME)" >&2
     getFromMarketplace "$MARKETPLACE_URL/api/v1/subscriptions?product.id=$MP_PRODUCT_ID" "" "$LOGS_DIR/mkt-subscription-product-$SANITIZE_PRODUCT_NAME-search.json"
@@ -225,17 +229,28 @@ function createMarketplaceSubscriptionIfNotExisting() {
         MP_SUBSCRIPTION_ID=`cat $LOGS_DIR/mkt-subscription-product-$SANITIZE_PRODUCT_NAME-search.json | jq '[ .items[] | select( .plan.id=="'$MP_PRODUCT_PLAN_ID'" and .owner.id=="'$TEAM_GUID'" ) ]' | jq -r '.[0].id'`
 
         # subscription not found?
-        if [[ $MP_SUBSCRIPTION_ID == null ]]
+        if [[ $MP_SUBSCRIPTION_ID != null ]]
         then
-            echo "              No subscription found, creating the new one..." >&2
-            jq -n -f ./jq/mkt-subscription.jq --arg subscriptionTitle "$SUBSCRIPTION_TITLE" --arg teamId $TEAM_GUID --arg planId $MP_PRODUCT_PLAN_ID --arg productId $MP_PRODUCT_ID > $LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE.json
-            postToMarketplace "$MARKETPLACE_URL/api/v1/subscriptions" $LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE.json $LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json
-            error_post "Problem creating subscription on Marketplace." $LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json
-            echo "              Subscription created." >&2
-
-            MP_SUBSCRIPTION_ID=$(cat $LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json | jq -rc '.id')
+            # subscription found so no need to create a new one
+            echo "              Subscription already exists, no need to create a new one." >&2
+            CAN_CREATE_SUBSCRIPTION=0
         fi
     fi
+
+    if [[ $CAN_CREATE_SUBSCRIPTION == 1 ]] 
+    then
+        echo "              No subscription found, creating the new one..." >&2
+        jq -n -f ./jq/mkt-subscription.jq --arg subscriptionTitle "$SUBSCRIPTION_TITLE" --arg teamId $TEAM_GUID --arg planId $MP_PRODUCT_PLAN_ID --arg productId $MP_PRODUCT_ID > "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE.json"
+        postToMarketplace "$MARKETPLACE_URL/api/v1/subscriptions" "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE.json" "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json"
+        error_post "Problem creating subscription on Marketplace." "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json"
+        echo "              Subscription created." >&2
+
+        MP_SUBSCRIPTION_ID=$(cat $LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json | jq -rc '.id')
+    fi
+
+    # clean up intermediate files
+    rm -rf $LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE*.json
+    rm -rf $LOGS_DIR/mkt-subscription-product-*.json
 
     echo "$MP_SUBSCRIPTION_ID"                        
 }
@@ -263,6 +278,8 @@ function createMarketplaceAccessRequestIfNotExisting() {
     local MP_SUBSCRIPTION_ID=$6
     local MP_APPLICATION_ID=$7
 
+    local CREATE_ACCESS_REQUEST=1
+
     local SANITIZE_PRODUCT_NAME=$(sanitizeName "$PRODUCT_NAME")
     local SANITIZE_APPLICATION_NAME=$(sanitizeName "$V7_APP_NAME")
     local LOG_FILE=$LOGS_DIR/mkt-product-$SANITIZE_PRODUCT_NAME-resource-search.json
@@ -279,20 +296,39 @@ function createMarketplaceAccessRequestIfNotExisting() {
         then
             # checking if access already exits
             echo "              Checking if access already exist" >&2
-            # TODO
-            #getFromMarketplace "$MARKETPLACE_URL/api/v1/applications/$MP_APPLICATION_ID/accessRequests" "" "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-search.json"
+            getFromMarketplace "$MARKETPLACE_URL/api/v1/applications/$MP_APPLICATION_ID/accessRequests" "" "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json"
+            ACCESS_REQUEST_RESULT=$(cat "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json" | jq -rc '.totalCount')
 
-            echo "              Adding access for API ($V7_API_NAME) to $V7_APP_NAME" >&2
-            local ACCESS_REQUEST_TITLE="$V7_APP_NAME"-"$V7_API_NAME"
-            jq -n -f ./jq/mkt-accessrequest.jq --arg accessRequestTile "$ACCESS_REQUEST_TITLE" --arg productId "$MP_PRODUCT_ID" --arg productIdVersion "$MP_PRODUCT_VERSION_ID" --arg assetResourceId "$MP_ASSETRESOURCE_ID" --arg subscriptionId $MP_SUBSCRIPTION_ID > $LOGS_DIR/mkt-accessrequest-$SANITIZE_APPLICATION_NAME.json
-            postToMarketplace "$MARKETPLACE_URL/api/v1/applications/$MP_APPLICATION_ID/accessRequests" $LOGS_DIR/mkt-accessrequest-$SANITIZE_APPLICATION_NAME.json $LOGS_DIR/mkt-accessrequest-$SANITIZE_APPLICATION_NAME-created.json
-            error_post "Problem creating Access Request on Marketplace." $LOGS_DIR/mkt-accessrequest-$SANITIZE_APPLICATION_NAME-created.json
-            echo "              AccessRequest created." >&2
+            if [[ $ACCESS_REQUEST_RESULT != 0 ]]
+            then
 
-            MP_ACCESS_REQUEST_ID=$(cat $LOGS_DIR/mkt-accessrequest-$SANITIZE_APPLICATION_NAME-created.json | jq -rc '.id')
-            
+                echo "              Access request found, check if there is one for the specific resource" >&2
+                # retrieve the correct one based on the RESOURCE_ID
+                MP_ACCESS_REQUEST_ID=`cat $LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json | jq '[ .items[] | select( .assetResource.id=="'$MP_ASSETRESOURCE_ID'" ) ]' | jq -r '.[0].id'`
+
+                if [[ $MP_ACCESS_REQUEST_ID != null ]]
+                then
+                    echo "              $V7_APP_NAME has already access to the API $V7_API_NAME" >&2
+                    # no need to create a new one
+                    CREATE_ACCESS_REQUEST=0
+                fi
+            fi
+
+            if [[ $CREATE_ACCESS_REQUEST == 1 ]]
+            then
+                echo "              Adding access for API ($V7_API_NAME) to $V7_APP_NAME" >&2
+                local ACCESS_REQUEST_TITLE="$V7_API_NAME - $V7_APP_NAME"
+                jq -n -f ./jq/mkt-accessrequest.jq --arg accessRequestTile "$ACCESS_REQUEST_TITLE" --arg productId "$MP_PRODUCT_ID" --arg productIdVersion "$MP_PRODUCT_VERSION_ID" --arg assetResourceId "$MP_ASSETRESOURCE_ID" --arg subscriptionId $MP_SUBSCRIPTION_ID > "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID.json"
+                postToMarketplace "$MARKETPLACE_URL/api/v1/applications/$MP_APPLICATION_ID/accessRequests" "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID.json" "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-created.json"
+                error_post "Problem creating Access Request on Marketplace." "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-created.json"
+                MP_ACCESS_REQUEST_ID=$(cat "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-created.json" | jq -rc '.id')
+            fi
         fi
     fi
+
+    # clean up tenporary files
+    rm -rf "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME*.json"
+    rm -rf "$LOG_FILE"
 
     echo $MP_ACCESS_REQUEST_ID
 }
@@ -304,7 +340,7 @@ function createMarketplaceAccessRequestIfNotExisting() {
 # - $1: subscription ID
 # Output: None
 #############################
-function approveSubscription() {
+function providerApproveSubscription() {
 
     local SUBSCRIPTION_ID=$1
 
@@ -332,60 +368,392 @@ function approveSubscription() {
     rm -rf $LOGS_DIR/susbcription-$SUBSCRIPTION_ID*
 }
 
+##################################################
+# Provider is approving the access in case needed
+# MKT_APP_ID == Application.ID
+# 
+# Input:
+# $1 - Marketplace application ID
+# $2 - asset request ID
+##################################################
+providerApproveAccesRequest() {
+
+    local MKT_APPLICATION_ID=$1
+    local ASSET_REQUEST_ID=$2
+
+    # let's find the application name first:
+    local URL="$CENTRAL_URL/apis/catalog/v1alpha1/applications?query=metadata.id=='$MKT_APPLICATION_ID'"
+    getFromCentral "$URL" "" "$LOGS_DIR/application-$MKT_APPLICATION_ID.json"
+    APPLICATION_NAME=$(cat "$LOGS_DIR/application-$MKT_APPLICATION_ID.json" | jq -rc '.[].name')
+
+    # now we can find the access request
+    URL="$CENTRAL_URL/apis/catalog/v1alpha1/applications/$APPLICATION_NAME/assetrequests/$ASSET_REQUEST_ID"
+    getFromCentral "$URL" "" "$LOGS_DIR/application-$APPLICATION_NAME-asset-request-search.json"
+    APPROVAL_STATE=$(cat "$LOGS_DIR/application-$APPLICATION_NAME-asset-request-search.json" | jq -rc '.approval.state.name')
+
+    if [[ $APPROVAL_STATE == "pending" ]]
+    then
+        # approve it automatically
+        putToCentral "$URL/approval" "./jq/assetrequest-approval.json" "$LOGS_DIR/application-$APPLICATION_NAME-asset-request-approved.json"
+    else
+        # already approved
+        echo "              Access request is already aproved" >&2
+    fi
+
+    # clean up intermediate files
+    rm -rf $LOGS_DIR/application*
+}
+
 #####################################################################
 # Approve and provision the access request and add the finalizers
 # so that the agent is aware of it
 #
 # Input:
 # - $1: V7 application name
+# - $2: V7 application ID
+# - $3: V7 api ID
+# - $4: Marketplace Access Request ID (mapped to provider access request name)
 # Output: ACCESS_REQUEST_ID
 #####################################################################
-function approveAndProvisionMarketplaceAccessRequest() {
+function providerProvisionAccesRequest() {
 
     local V7_APP_NAME=$1
     local V7_APP_ID=$2
     local V7_API_ID=$3
-    local ACCESS_REQUEST_TITLE=$4
-    local ACCESS_REQUEST_TITLE_ENCODED=`printf %s "$ACCESS_REQUEST_TITLE" | jq -sRr @uri`
-    local URL=$CENTRAL_URL'/apis/management/v1alpha1/accessrequests?query=title==%27'$ACCESS_REQUEST_TITLE_ENCODED'%27' 
+    local MKT_ACCESS_REQUEST_ID=$4
+    local URL=$CENTRAL_URL'/apis/management/v1alpha1/accessrequests?query=name==%27'$MKT_ACCESS_REQUEST_ID'%27' 
 
-    # find the Access request associated to the Marketplace Acces Request
-    getFromCentral "$URL" "" $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED.json
+    # find the Access request associated to the Marketplace Acces Request (MKT-accessrequestID==AccessRequest-name)
+    getFromCentral "$URL" "" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json"
+#    error_post "Error retrieving the Access Request on provider side" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json"
 
     # read existing information for the post (AccReq name + environment name)
-    ACCESS_REQUEST_NAME=$(cat $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED.json | jq -rc '.[].name')
-    ACCESS_REQUEST_ENVIRONMENT_NAME=$(cat $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED.json | jq -r '.[].metadata.scope.name')
+    ACCESS_REQUEST_NAME=$(cat $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json | jq -rc '.[].name')
+    ACCESS_REQUEST_ENVIRONMENT_NAME=$(cat $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json | jq -r '.[].metadata.scope.name')
 
     # mark it as provisioned (add the finalizers)
-    jq --slurpfile file2 ./jq/agent-accreq-finalizer.json '(.[].finalizers += $file2)' $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED.json > $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-finalizer.json
+    jq --slurpfile file2 ./jq/agent-accreq-finalizer.json '(.[].finalizers += $file2)' $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json > $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-finalizer.json
 
     # Remove references and status
-    echo $(cat $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-finalizer.json  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )') > $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-update.json
+    echo $(cat $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-finalizer.json  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )') > $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-update.json
     
     # Post to Central
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME" "$LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-update.json" "$LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-updated.json"
-    error_exit "Problem while updating the access request agent information..." $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-updated.json
+    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-update.json" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated.json"
+#    error_post "Problem while updating the access request agent information..." $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated.json
 
     # Add x-agent-details
     jq -n -f ./jq/agent-accreq-details.jq --arg accessID "$V7_API_ID" --arg applicationID $V7_APP_ID > $LOGS_DIR/agent-access-details-$V7_APP_ID.json
 
     # Post to Central
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/x-agent-details" "$LOGS_DIR/agent-access-details-$V7_APP_ID.json" " $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-agent-details.json"
-    error_exit "Problem while updating the agent details info..." $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-updated-state.json
+    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/x-agent-details" "$LOGS_DIR/agent-access-details-$V7_APP_ID.json" " $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-agent-details.json"
+#    error_post "Problem while updating the agent details info..." $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json
 
     # Update status
     # mark it as done -> level = SUCCESS
     TIMESTAMP=$(date --utc +%FT%T.%3N%z)
     jq -n -f ./jq/agent-status-success.jq --arg timestampUTC "$TIMESTAMP" > $LOGS_DIR/agent-status-success.json
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/status" "$LOGS_DIR/agent-status-success.json" " $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-updated-state.json"
-    error_exit "Problem while updating the access request status..." $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-updated-state.json
+    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/status" "$LOGS_DIR/agent-status-success.json" " $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
+#    error_post "Problem while updating the access request status..." $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json
 
     #clean up intermediate files
-    rm -rf $LOGS_DIR/accrequset-$ACCESS_REQUEST_TITLE_ENCODED-finalizer.json
+    rm -rf $LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID*.json
     rm -rf $LOGS_DIR/agent-access-details-$V7_APP_ID.json
     rm -rf $LOGS_DIR/agent-status-success.json
 }
 
+###################################################
+# Find the appropriate CredentialRequestDefinition
+#
+# Input:
+# - $1 : credenitalType
+# - $2 : app mapping - to find the CRD
+# Output: CRD_ID if found / "" if not found
+###################################################
+function findCredentialRequestDefinition() {
+
+    local CREDENTIAL_TYPE=$1
+    local APP_MAPPING=$2
+    local CRD_FOUND=""
+
+    logDebug "Search for corresponding CRD of type $CREDENTIAL_TYPE"
+    # find CRDs from mapping file
+    MAPPING_NUMBER=`jq length $APP_MAPPING`
+
+    for (( i=0; i<$MAPPING_NUMBER; i++ )) ; {
+        # extract information
+        MAPPING_VALUE=$(cat $APP_MAPPING | jq -rc '.['$i']')
+        logDebug "$i = $MAPPING_VALUE"
+
+        CRD_ID=$(echo $MAPPING_VALUE | jq -r '.credentialRequestDefinitionId')
+        ENV_NAME=$(echo $MAPPING_VALUE | jq -r '.environment')
+        logDebug "CRD_ID to validate = $CRD_ID"
+
+        if [[ $CRD_ID != "$CREDENTIAL_DEFINTION_NONE" ]]
+        then
+            # find its details in CENTRAL
+            local URL="$CENTRAL_URL/apis/catalog/v1alpha1/credentialrequestdefinitions?query=metadata.id==$CRD_ID"
+            CRD_NAME=$(getFromCentral "$URL" ".[].name" "$LOGS_DIR/crds-$CRD_ID.json")
+            error_exit "Failed to retrieve credential definition" "$LOGS_DIR/crds-$CRD_ID.json"
+
+            logDebug "CRD-NAME == $CRD_NAME"
+
+            if [[ $CRD_NAME != '' ]]
+            then
+                case $CREDENTIAL_TYPE in
+                    "$CREDENTIAL_TYPE_APIKEY")
+                        logDebug "Searching API Key"
+                        if [[ $CRD_NAME == $CREDENTIAL_DEFINTION_APIKEY ]]
+                        then
+                            CRD_FOUND=$CRD_ID  
+                            break
+                        fi
+                        ;;
+                    "$CREDENTIAL_TYPE_OAUTH")
+                        logDebug "Searching OAuth"
+                        if [[ $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_PUBLIC_KEY || $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_SECRET ]]
+                        then
+                            CRD_FOUND=$CRD_ID  
+                            break
+                        fi
+                        ;;
+                    "$CREDENTIAL_TYPE_EXTERNAL")
+                        logDebug "Searching External"
+                        if [[ $CRD_NAME == *$CREDENTIAL_DEFINTION_EXTERNAL_ID ]]
+                        then
+                            CRD_FOUND=$CRD_ID  
+                            break
+                        fi
+                        ;;
+                esac
+            fi
+        fi
+    }
+
+    logDebug "Found CRD = $CRD_FOUND"
+    echo "$CRD_FOUND"
+}
+
+############################################
+# Find the field possible value given a field in the CRD definition
+# 1st find the default value
+# If no default value, search the 1st item of an enum
+# Default to "Dummy"
+#
+# Input: 
+# - $1: field name
+# - $2: crd definition file
+# Output
+# - String value
+############################################for ()
+findCredentialFieldValue () {
+    local FIELD_NAME=$1
+    local CRD_FILE=$2
+    local FIELD_VALUE="Dummy"
+
+    FIELD_PATH=".[].spec.schema.properties.$FIELD_NAME"
+    FIELD_DEFINITION=$(cat $CRD_FILE | jq -rc ''$FIELD_PATH'')
+
+    FIELD_DEFAULT_VALUE=$(echo $FIELD_DEFINITION | jq -rc '.default')
+    if [[ $FIELD_DEFAULT_VALUE != null ]]
+    then
+        FIELD_VALUE=$FIELD_DEFAULT_VALUE
+    else
+        # no default valuem, try an enum
+        FIELD_ENUM=$(echo $FIELD_DEFINITION | jq -rc '.enum')
+
+        if [[ $FIELD_ENUM != null ]]
+        then
+            # we take the 1st one
+            FIELD_VALUE=$(echo $FIELD_DEFINITION | jq -rc '.enum[0]')
+        fi
+    fi
+
+    echo "$FIELD_VALUE"
+
+}
+
+############################################
+# Create a provision credential
+# Based on CRD requred fields, add some fake values
+#
+# Input: 
+# - $1: field list
+# - $2: crd definition file
+# Output
+# - file containing the information
+############################################for ()
+function createTheCredentialRequiredField() {
+    local REQUIRED_FIELDS=$1
+    local CRD_FILE=$2
+    local OUTPUT_FILE=$3
+
+    FIELD_NUMBER=$(echo $REQUIRED_FIELDS | jq length)
+
+    if [[ $FIELD_NUMBER != 0 ]]
+    then
+        echo "{\"data\":{" > $OUTPUT_FILE
+        for (( i=0; i<$FIELD_NUMBER; i++ )) ; {
+
+            FIELD_NAME=$(echo $REQUIRED_FIELDS | jq -rc '.['$i']')
+            FIELD_VALUE=$(findCredentialFieldValue $FIELD_NAME "$CRD_FILE")
+            
+            if [[ $i == 0 ]]
+            then
+                echo "\"$FIELD_NAME\":\"$FIELD_VALUE\"" >> $OUTPUT_FILE
+            else
+                echo ",\"$FIELD_NAME\":\"$FIELD_VALUE\"" >> $OUTPUT_FILE
+            fi
+        }
+        echo "}}" >> $OUTPUT_FILE
+    fi
+}
+
+############################################
+# Create a provision credential
+#
+# Input:
+# - $1: V7 application ID
+# - $1: credentials list
+# - $2: credential type (APIKEY/OAUTH/External)
+# - $3: Marketplace application ID
+# - $5: Mapping information
+# Ouput:
+############################################
+function createAndProvisionCredential () {
+
+    local V7_APP_ID=$1
+    local CREDENTIAL_LIST=$2
+    local CREDENTIAL_TYPE=$3
+    local MKT_APP_ID=$4
+    local APP_MAPPING=$5
+
+    # for each in the list do
+    CREDENTIAL_NUMBER=`jq length $CREDENTIAL_LIST`
+    logDebug "Credential number to create: $CREDENTIAL_NUMBER"
+
+    if [[ $CREDENTIAL_NUMBER > 0 ]]
+    then
+
+        for (( i=0; i<$CREDENTIAL_NUMBER; i++ )) ; {
+            
+            # extract information
+            CREDENTIAL_VALUE=$(cat $CREDENTIAL_LIST | jq -rc '.['$i']')
+            logDebug "Credentials value ($i) = $CREDENTIAL_VALUE"
+
+            CREDENTIAL_ID=$(echo $CREDENTIAL_VALUE | jq -rc '.id')
+            if [[ $CREDENTIAL_TYPE == $CREDENTIAL_TYPE_APIKEY || $CREDENTIAL_TYPE == $CREDENTIAL_TYPE_OAUTH ]]
+            then
+                # APIKEY / OAuth internal
+                CREDENTIAL_ID_SECRET=$(echo $CREDENTIAL_VALUE | jq -rc '.secret')
+                CREDENTIAL_HASH=$(hashingCredentialValue "$CREDENTIAL_HASH_2_PARAM" $CREDENTIAL_ID $CREDENTIAL_ID_SECRET)
+            else
+                # external clientID
+                CREDENTIAL_CLIENT_ID=$(echo $CREDENTIAL_VALUE | jq -rc '.clientId')
+                CREDENTIAL_HASH=$(hashingCredentialValue "$CREDENTIAL_HASH_3_PARAM" $CREDENTIAL_ID "$CREDENTIAL_CLIENT_ID")
+            fi
+
+            logDebug "Credential hash = $CREDENTIAL_HASH"
+
+            # get a credential request definition for the credential type
+            CREDENTIAL_REQUEST_DEFINIITON=$(findCredentialRequestDefinition "$CREDENTIAL_TYPE" "$APP_MAPPING")
+
+            if [[ $CREDENTIAL_REQUEST_DEFINIITON != "" ]]
+            then
+
+                # Search if credential already exist on consumer side
+                local URL="$CENTRAL_URL/apis/management/v1alpha1/credentials?query=name==$CREDENTIAL_ID"
+                getFromCentralWithRetry "$URL" "" "$LOGS_DIR/credential-$CREDENTIAL_ID.json"
+                error_exit "Cannot find credentials..." "$LOGS_DIR/credential-$CREDENTIAL_ID.json"
+
+                FILE_LENGTH=$(jq length $LOGS_DIR/credential-$CREDENTIAL_ID.json)
+
+                if [[ $FILE_LENGTH != '' && $FILE_LENGTH != 0 ]] 
+                then
+                    echo "              Credential already exists, no need to create a new one."
+                else
+                    echo "              Credential not found, creating it..."
+
+                    # generate credential payload...
+                    jq -n -f ./jq/mkt-credential.jq --arg credentialTitle "$CREDENTIAL_ID" --arg credentialrequestdefinition "$CREDENTIAL_REQUEST_DEFINIITON" > "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json"
+
+                    # add any mandatory information just for the query to not fail
+                    logDebug "Finding fields for CRD ($CREDENTIAL_REQUEST_DEFINIITON)...."
+                    REQUIRED_FIELDS=$(cat $LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json | jq -rc '.[].spec.schema.required')
+                    logDebug "Found fields=$REQUIRED_FIELDS-"
+
+                    if [[ $REQUIRED_FIELDS != null ]] then
+                        echo "                  Adding mandatory fields..."
+                        createTheCredentialRequiredField $REQUIRED_FIELDS "$LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-fields.json"
+
+                        # merge the files...
+                        logDebug "Merging files"
+                        jq --argjson data "$(jq '.data' $LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-fields.json)" '.data = $data' $LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json > $LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-tmp.json
+                        mv $LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-tmp.json $LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json
+                    fi
+
+                    # post to Marketplace...
+                    echo "                  Creating the credential $CREDENTIAL_ID on Marketplace side...." >&2
+                    postToMarketplace "$MARKETPLACE_URL/api/v1/applications/$MKT_APP_ID/credentials" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-created.json"
+                    error_post "Error while creating credentials $CREDENTIAL_ID for Application $MKT_APP_ID" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-created.json"
+                    echo "              Credential created." 
+
+                    # provision on provider side...
+                    echo "              Provider provision the credential..." >&2
+
+                    # find credential and read it (MKT-credentialID==Credential-name)
+                    URL=$CENTRAL_URL'/apis/management/v1alpha1/credentials?query=name=='$CREDENTIAL_ID'' 
+                    # find the credential associated to the Marketplace credentials
+                    getFromCentralWithRetry "$URL" "" "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json"
+                    error_exit "Failed to retrieve Cendential $CREDENTIAL_ID" "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json"
+
+                    CREDENTIAL_NAME=$(cat $LOGS_DIR/credential-$CREDENTIAL_ID-created.json  | jq -rc '.[].name')
+                    CREDENTIAL_ENVIRONMENT_NAME=$(cat $LOGS_DIR/credential-$CREDENTIAL_ID-created.json  | jq -r '.[].metadata.scope.name')
+
+                    # mark it as provisioned (add the finalizers)
+                    jq --slurpfile file2 ./jq/agent-credfential-finalizer.json '(.[].finalizers += $file2)' $LOGS_DIR/credential-$CREDENTIAL_ID-created.json > $LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json
+
+                    # Remove references and status
+                    cat $LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )' > $LOGS_DIR/credential-$CREDENTIAL_ID-update.json
+                    
+                    # Post to Central
+                    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$CREDENTIAL_ENVIRONMENT_NAME/credentials/$CREDENTIAL_NAME" "$LOGS_DIR/credential-$CREDENTIAL_ID-update.json" "$LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json"
+                    error_post "Problem while updating the credential agent information..." "$LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json"
+                    echo "                  Finalizer added to the credential..." >&2
+
+                    # Add x-agent-details
+                    jq -n -f ./jq/agent-credential-details.jq --arg applicationID "$V7_APP_ID" --arg credentialReference $CREDENTIAL_HASH > $LOGS_DIR/credential-$CREDENTIAL_ID-agent-details.json
+
+                    # Post to Central
+                    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$CREDENTIAL_ENVIRONMENT_NAME/credentials/$CREDENTIAL_NAME/x-agent-details" "$LOGS_DIR/credential-$CREDENTIAL_ID-agent-details.json" " $LOGS_DIR/credential-$CREDENTIAL_ID-agent-details-updated.json"
+                    error_post "Problem while updating the credential agent details info..." $LOGS_DIR/credential-$CREDENTIAL_ID-agent-details-updated.json
+                    echo "                  x-agent-details added to the credential..." >&2
+
+                    # Update status
+                    # mark it as done -> level = SUCCESS
+                    TIMESTAMP=$(date --utc +%FT%T.%3N%z)
+                    jq -n -f ./jq/agent-status-success.jq --arg timestampUTC "$TIMESTAMP" > $LOGS_DIR/credential-$CREDENTIAL_ID-agent-status-success.json
+                    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$CREDENTIAL_ENVIRONMENT_NAME/credentials/$CREDENTIAL_NAME/status" "$LOGS_DIR/credential-$CREDENTIAL_ID-agent-status-success.json" " $LOGS_DIR/credential-$CREDENTIAL_ID-agent-status-success-updated.json"
+                    error_post "Problem while updating the access request status..." $LOGS_DIR/credential-$CREDENTIAL_ID-agent-status-success-updated.json
+
+                    echo "              Credential provisioning done." >&2
+
+                    # clean up temporary file
+                    rm -rf $LOGS_DIR/credential-$CREDENTIAL_ID*.json
+                    rm -rf $LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID*.json
+                fi
+            else
+                echo "---<<WARNING>> No credential of type $CREDENTIAL_TYPE found in the mapping." >&2
+            fi
+
+            # clean up intermediate files
+            rm -rf $LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json  
+
+
+        }
+    else
+        echo "No credential of type $CREDENTIAL_TYPE in the application $MKT_APP_ID" >&2
+    fi
+}
 
 #####################################################
 # Move v7 Application to Amplify Agents organization
@@ -460,6 +828,7 @@ migrate_v7_application() {
         # read organization name for creating the corresponding team name if needed
         v7_ORG_NAME=$(getAPIM_OrganizationName "$V7_ORG_ID")
         echo "  TEAM_NAME=$v7_ORG_NAME / APP_NAME=$V7_APP_NAME" >&2
+        V7_APP_NAME_SANITIZED=$(sanitizeName "$V7_APP_NAME")
 
         # Adding the organization as a team in Amplify?
         if [[ "$v7_ORG_NAME" != "Amplify Agents" ]]; then
@@ -497,7 +866,7 @@ migrate_v7_application() {
                     PRODUCT_NAME=$(cat $LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.productName')
                     PRODUCT_PLAN_NAME=$(cat $LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.planName')
 
-                    if [[ $PRODUCT_NAME != "" && $PRODUCT_PLAN_NAME != "" ]] 
+                    if [[ $PRODUCT_NAME != $TBD_VALUE && $PRODUCT_PLAN_NAME != $TBD_VALUE ]] 
                     then
                         # Grant access to the API to Amplify Agents org
                         echo "          Granting Amplify Agents org accees to API $V7_API_ID..."
@@ -520,39 +889,56 @@ migrate_v7_application() {
 
                         # Approve the subscription if manual porocess in place
                         echo "          Approving the Subscription..." >&2
-                        approveSubscription "$MKT_SUBSCRIPTION_ID"
+                        providerApproveSubscription "$MKT_SUBSCRIPTION_ID"
 
                         ## Access Request Management ##
                         echo "          Creating Access request..." >&2
-                        MKT_ACCESS_REQUEST_TITLE="$V7_APP_NAME"-"$V7_API_NAME"
                         MKT_ACCESS_REQUEST_ID=$(createMarketplaceAccessRequestIfNotExisting "$V7_APP_NAME" "$V7_API_NAME" "$PRODUCT_NAME" "$MP_PRODUCT_ID" "$MP_PRODUCT_LATEST_VERSION_ID" "$MKT_SUBSCRIPTION_ID" "$MKT_APP_ID")
                         echo "          Access request created." >&2
 
-                        # TODO = appove access request
-                        echo "          Approving and Provisioning the Access Request..." >&2
-                        PROVIDER_ACCESS_REQUEST=$(approveAndProvisionMarketplaceAccessRequest "$V7_APP_NAME" "$V7_APP_ID" "$V7_API_ID" "$MKT_ACCESS_REQUEST_TITLE")
-                        echo "          Access Request activated." >&2
+                        echo "          Approve Access request..." >&2
+                        providerApproveAccesRequest "$MKT_APP_ID" "$MKT_ACCESS_REQUEST_ID"
+                        echo "          Access request approved." >&2
+
+                        echo "          Provisioning the Access Request..." >&2
+                        PROVIDER_ACCESS_REQUEST=$(providerProvisionAccesRequest "$V7_APP_NAME" "$V7_APP_ID" "$V7_API_ID" "$MKT_ACCESS_REQUEST_ID")
+                        echo "          Access Request provisioned." >&2
                     else
                         echo "          /!\ productName and/or planName for application ($V7_APP_NAME) and api ($V7_API_NAME) are not defined in the mapping, cannot proceed farther" >&2
                     fi
 
                 done
 
+                # clean up intermediate file
+                rm -rf $LOGS_DIR/app-$V7_APP_ID-apis.json
+
                 # provison the ManageApplication - created only once an accessrequest is added to the application
                 echo "      Provisioning the corresponding Managed application...." 
-                approveAndPropvisionMarketplaceApplication "$MKT_APP_ID" "$V7_APP_ID"
-                echo "      Managed Application provisioning done." 
+                providerProvisionManagedApplication "$MKT_APP_ID" "$V7_APP_ID"
+                echo "      Managed Application provisioned." 
 
                 # creating credentials
                 echo "      Creating credentials for application $V7_APP_NAME" >&2
 
                 echo "          Creating credentials APIKEYS for application $V7_APP_NAME" >&2
-                #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/4b3c2933-4307-44c1-aad3-51c2ee48a85a/apikeys
-                #createAndProvisionCredential
+                getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_APIKEY" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" 
+                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" "$CREDENTIAL_TYPE_APIKEY" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json"
+
                 echo "          Creating credentials OAUTH for application $V7_APP_NAME" >&2
-                #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/4b3c2933-4307-44c1-aad3-51c2ee48a85a/oauth
+                getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_OAUTH" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" 
+                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" "$CREDENTIAL_TYPE_OAUTH" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json"
+
                 echo "          Creating credentials EXTERNAL for application $V7_APP_NAME" >&2
-                #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/4b3c2933-4307-44c1-aad3-51c2ee48a85a/extclients
+                getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_EXTERNAL" "$LOGS_DIR/app-$V7_APP_ID-external.json" 
+                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-external.json" "$CREDENTIAL_TYPE_EXTERNAL" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json"
+
+                echo "S L E E P I N G   T I M E..." 
+                sleep 15000
+
+                # clean up intermediate files
+                rm -rf "$LOGS_DIR/app-$V7_APP_ID-apikeys.json"
+                rm -rf "$LOGS_DIR/app-$V7_APP_ID-oauth.json" 
+                rm -rf "$LOGS_DIR/app-$V7_APP_ID-external.json"
 
                 ## Update V7 application: move it to Amplify Agents org / update its name so that TA still work
                 echo "      Updating v7 application $V7_APP_NAME...."
@@ -561,6 +947,9 @@ migrate_v7_application() {
             else
                 echo "      /!\ No mapping found... Cannot proceed farther" >&2
             fi
+
+            # clean up intermediate files
+            rm -rf $LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json
 
         else # It is  the Amplify Agents org - nothing to do
             echo "  Skipping team / app creation as already present in Marketplace" >&2
@@ -617,14 +1006,14 @@ echo "All pre-requisites are available"
 #login to the platform
 loginToPlatform
 
+mkdir -p $LOGS_DIR
+
 # create the Amplify Agents organization if not exist and retrieve its ID or the Existing org ID.
 AGENT_V7_ORG_ID=$(createAmplifyAgentOrganizationIfNotExisting)
 
 echo ""
 echo "Creating the Marketplace Application"
-migrate_v7_application "Testing APP with missing org"
+migrate_v7_application "Banking for partners"
 echo "Done."
-
-#rm $LOGS_DIR/*
 
 exit 0

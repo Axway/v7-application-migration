@@ -1,8 +1,27 @@
+# some variables
 CREDENTIAL_TYPE_APIKEY="APIKEY"
 CREDENTIAL_TYPE_OAUTH="OAUTH"
 CREDENTIAL_TYPE_EXTERNAL="EXTERNAL"
-CREDENTIAL_DEFINTION_NONE="None"
 TBD_VALUE="TBD"
+CREDENTIAL_DEFINTION_NONE="None"
+CREDENTIAL_DEFINTION_BASIC_AUTH="http-basic"
+CREDENTIAL_DEFINTION_APIKEY="api-key"
+CREDENTIAL_DEFINTION_OAUTH_SECRET="oauth-secret"
+CREDENTIAL_DEFINTION_OAUTH_PUBLIC_KEY="oauth-public-key"
+CREDENTIAL_DEFINTION_EXTERNAL_ID="-oauth-idp"
+CREDENTIAL_HASH_2_PARAM="2"
+CREDENTIAL_HASH_3_PARAM="3"
+
+# For debugging purpose
+DEBUG=0
+
+function logDebug()
+{
+	if [[ $DEBUG == 1 ]]
+	then
+		echo "DEBUG- $1" >&2
+	fi
+}
 
 #########################################
 # Error management after a command line 
@@ -91,8 +110,8 @@ isPlatformTeamExisting() {
     TEAM_GUID=""
 
     # read the team
-    axway team view $ORG_ID "$TEAM_NAME" > $LOGS/team.txt
-    TEAM_GUID_TMP=$(cat $LOGS/team.txt | grep "Team GUID")
+    axway team view $ORG_ID "$TEAM_NAME" > $LOGS_DIR/team.txt
+    TEAM_GUID_TMP=$(cat $LOGS_DIR/team.txt | grep "Team GUID")
 
     if [[ $TEAM_GUID_TMP != "" ]] 
     then
@@ -101,6 +120,7 @@ isPlatformTeamExisting() {
         TEAM_GUID=${TEAM_GUID_TMP:14}
     fi
 
+	rm -rf $LOGS_DIR/team.txt
     echo $TEAM_GUID
 }
 
@@ -369,6 +389,8 @@ function postToMarketplace() {
 	curl -s -k -L $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN -d "`cat $2`" > $outputFile
 }
 
+
+
 ########################################
 # Build CentralURl based on the region #
 #                                      #
@@ -396,6 +418,52 @@ function getCentralURL {
 	fi 
 
 	echo $CENTRAL_URL
+}
+
+##########################################################
+# Getting data from the Central                          #
+# either return the entire object or the portion         #
+# specified with $2 as a jq extract expression           #
+#                                                        #
+# with a retry mechanism                                 #
+#                                                        #
+# $1 (mandatory): url to call                            #
+# $2 (optional): jq expression to extract information    #
+# $3 output file where to put result                     #
+##########################################################
+getFromCentralWithRetry() {
+	local URL=$1
+	local JQ_EXPRESSION=$2
+	local OUTPUT_FILE=$3
+	local ATTEMPT_MAX=3
+	local SLEEP_TIME=1
+
+	until [ $ATTEMPT_MAX -le 0 ]
+	do
+		logDebug "count: $ATTEMPT_MAX - sleep time = $SLEEP_TIME"
+
+		# find the credential associated to the Marketplace credentials
+		getFromCentral "$URL" "$JQ_EXPRESSION" "$OUTPUT_FILE"
+		FILE_LENGTH=$(jq length $OUTPUT_FILE)
+
+		if [[ $FILE_LENGTH != '' && $FILE_LENGTH != 0 ]] 
+		then
+			# there is something in the file
+			logDebug "We found something...."
+			ATTEMPT_MAX=0
+		else
+			logDebug "Go to sleep..."
+			# sleep a little to get some time for events to be processed
+			sleep $SLEEP_TIME
+            # reduce the number of attempts
+			((ATTEMPT_MAX=ATTEMPT_MAX-1))
+			# increase the sleep time for next time
+			((SLEEP_TIME=SLEEP_TIME*2))
+		fi
+
+	done
+
+	logDebug "Ending the search"
 }
 
 ##########################################################
@@ -456,19 +524,18 @@ hashingCredentialValue() {
     CREDENTIAL_TYPE=$1
     CREDENTIAL_ID=$2
     CREDENTIAL_ID_SECRET=$3
+	RETURN_VAL=""
     
     case $CREDENTIAL_TYPE in
-        "3_PARAM")
-            returnVal=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID "-" $CREDENTIAL_ID_SECRET)
+        $CREDENTIAL_HASH_2_PARAM)
+            RETURN_VAL=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID "-" $CREDENTIAL_ID_SECRET)
             ;;
-        "2_PARAM")
-            returnVal=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID $CREDENTIAL_ID_SECRET)
-            ;;
-        *) returnVal=""
+        $CREDENTIAL_HASH_3_PARAM)
+            RETURN_VAL=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID $CREDENTIAL_ID_SECRET)
             ;;
     esac
 
-    echo $returnVal
+    echo "$RETURN_VAL"
 }
 
 
@@ -485,7 +552,7 @@ sanitizeName() {
     # replace '/' with '-'
     SANITIZED_NAME=${INPUT_TMP//\//-}
 
-    echo $SANITIZED_NAME
+    echo "$SANITIZED_NAME"
 }
 
 ######################################################
@@ -499,5 +566,5 @@ sanitizeNameForQuery() {
     # replace ' ' with '%20'
     SANITIZED_NAME=${INPUT// /%20}
 
-    echo $SANITIZED_NAME
+    echo "$SANITIZED_NAME"
 }
