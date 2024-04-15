@@ -488,7 +488,7 @@ function findCredentialRequestDefinition() {
         ENV_NAME=$(echo $MAPPING_VALUE | jq -r '.environment')
         logDebug "CRD_ID to validate = $CRD_ID"
 
-        if [[ $CRD_ID != "$CREDENTIAL_DEFINTION_NONE" ]]
+        if [[ $CRD_ID != "$TBD_VALUE" ]]
         then
             # find its details in CENTRAL
             local URL="$CENTRAL_URL/apis/catalog/v1alpha1/credentialrequestdefinitions?query=metadata.id==$CRD_ID"
@@ -799,19 +799,17 @@ function moveV7appToAmplifyAgentsOrganization() {
 ########################################################
 migrate_v7_application() {
 
-    V7_APPLICATION_NAME_TO_MIGRATE=$1
-
     # Should we migrate all or just one?
-    if [[ $V7_APPLICATION_NAME_TO_MIGRATE == '' ]]
+    if [[ $APP_NAME_TO_MIGRATE == '' ]]
     then
         # create the applicationList
         echo "Reading all applications" >&2
         getFromApiManager "applications" $TEMP_FILE
     else
-        echo "Reading single application: $V7_APPLICATION_NAME_TO_MIGRATE" >&2
+        echo "Reading single application: $APP_NAME_TO_MIGRATE" >&2
         getFromApiManager "applications" $LOGS_DIR/tmp.json
         # need to return an array for it to work regardless it is a single or multiple.
-        cat $LOGS_DIR/tmp.json | jq  '[.[] | select(.name=="'"$V7_APPLICATION_NAME_TO_MIGRATE"'")]' >  $TEMP_FILE
+        cat $LOGS_DIR/tmp.json | jq  '[.[] | select(.name=="'"$APP_NAME_TO_MIGRATE"'")]' >  $TEMP_FILE
         rm -rf $LOGS_DIR/tmp.json
     fi
 
@@ -1013,7 +1011,7 @@ AGENT_V7_ORG_ID=$(createAmplifyAgentOrganizationIfNotExisting)
 
 echo ""
 echo "Creating the Marketplace Application"
-migrate_v7_application "Banking for partners"
+migrate_v7_application
 echo "Done."
 
 exit 0

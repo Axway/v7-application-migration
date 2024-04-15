@@ -29,7 +29,7 @@ function findProductInformation() {
     local PRODUCT_NAME_FOUMD=$TBD_VALUE
     local PRODUCT_PLAN_NAME_FOUND=$TBD_VALUE
     local ENVIRONMENT_NAME_FOUMD=$TBD_VALUE
-    local CREDENTIAL_REQUEST_DEFINITION_ID_FOUND="$CREDENTIAL_DEFINTION_NONE"
+    local CREDENTIAL_REQUEST_DEFINITION_ID_FOUND="$TBD_VALUE"
     local noError=0
 
     echo "      Looking for product for API ($V7_API_NAME - $V7_API_ID)" >&2 
@@ -81,6 +81,27 @@ function findProductInformation() {
                         # Read the asset name
                         ASSET_NAME=$(cat $LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json | jq -rc '.[].name')
 
+                        # read the asset resource to find the CRD_ID
+                        # find API Service instance
+                        getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ENVIRONMENT_NAME_FOUMD/apiserviceinstances?query=metadata.references.name==$APISERV_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
+                        error_exit "---<<WARNING>> Unable to retrieve API Service Instance for ($APISERV_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
+
+                        APISERV_INSTANCE_NAME=$(cat $LOGS_DIR/api-srv-$V7_API_ID-instance.json | jq -rc '.[].name')
+
+                        # find AssetResources having the APIServiceInstance
+                        getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets/$ASSET_NAME/assetresources?query=metadata.references.name==$APISERV_INSTANCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
+                        error_exit "---<<WARNING>> Unable to retrieve Asset resources for asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
+
+                        ASSET_RESOURCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json" | jq -rc '.[].name')
+                        ASSET_RESOURCE_CRD_ID=$(jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id' $LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json)
+
+                        if [[ $ASSET_RESOURCE_CRD_ID == '' ]]
+                        then
+                            echo "Assert resource is null" >&2
+                        else
+                            CREDENTIAL_REQUEST_DEFINITION_ID_FOUND=$ASSET_RESOURCE_CRD_ID
+                        fi
+
                         # find product
                         getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/products?query=metadata.references.name==$ASSET_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
                         error_exit "---<<WARNING>> Unable to retrieve Product linked to Asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
@@ -117,29 +138,6 @@ function findProductInformation() {
                                         PRODUCT_PLAN_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].metadata.id')
                                         PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].name')
 
-                                        # find the quotas that have the asset resources hosting the APIService
-                                        # find API Service instance
-                                        getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ENVIRONMENT_NAME_FOUMD/apiserviceinstances?query=metadata.references.name==$APISERV_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
-                                        error_exit "---<<WARNING>> Unable to retrieve API Service Instance for ($APISERV_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
-
-                                        APISERV_INSTANCE_NAME=$(cat $LOGS_DIR/api-srv-$V7_API_ID-instance.json | jq -rc '.[].name')
-
-                                        # find AssetResources having the APIServiceInstance
-                                        getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets/$ASSET_NAME/assetresources?query=metadata.references.name==$APISERV_INSTANCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
-                                        error_exit "---<<WARNING>> Unable to retrieve Asset resources for asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
-
-                                        ASSET_RESOURCE_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"`
-                                        ASSET_RESOURCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json" | jq -rc '.[].name')
-                                        ASSET_RESOURCE_CRD_ID=$(jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id' $LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json)
-                                        cp $LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json $LOGS_DIR/api-srv-control-$V7_API_ID-asset-resources.json
-
-                                        if [[ $ASSET_RESOURCE_CRD_ID == '' ]]
-                                        then
-                                            echo "Assert resource is null" >&2
-                                        else
-                                            CREDENTIAL_REQUEST_DEFINITION_ID_FOUND=$ASSET_RESOURCE_CRD_ID
-                                        fi
-
                                         # find the Quota for the AssetResources.
                                         getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/quotas?query=metadata.references.name==$ASSET_RESOURCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
                                         error_exit "---<<WARNING>> Unable to retrieve product ($PRODUCT_NAME_FOUMD) quotas" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
@@ -175,7 +173,7 @@ function findProductInformation() {
     if [[ $noError == 1 ]]
     then
         # clean up intermediate files when no errors occured
-        rm -rf $LOGS_DIR/api-srv-$V7_API_ID-*.json
+        rm -rf $LOGS_DIR/api-srv-$V7_API_ID*.json
     fi
 
     # compute final result
@@ -191,8 +189,20 @@ function generateMappingFile() {
     echo "Initializing Mapping file ($OUTPUT_FILE)"
     echo "[]" > $OUTPUT_FILE
 
-    # read Application list from APIM
-    getFromApiManager "applications" $TEMP_FILE
+    echo "-$APP_NAME_TO_MIGRATE-"
+    # Should we migrate all or just one?
+    if [[ $APP_NAME_TO_MIGRATE == '' ]]
+    then
+        # create the applicationList
+        echo "Reading all applications" >&2
+        getFromApiManager "applications" $TEMP_FILE
+    else
+        echo "Reading single application: $APP_NAME_TO_MIGRATE" >&2
+        getFromApiManager "applications" $LOGS_DIR/tmp.json
+        # need to return an array for it to work regardless it is a single or multiple.
+        cat $LOGS_DIR/tmp.json | jq  '[.[] | select(.name=="'"$APP_NAME_TO_MIGRATE"'")]' >  $TEMP_FILE
+        rm -rf $LOGS_DIR/tmp.json
+    fi
 
     # loop over the result and keep interesting data (name / description / org)
     cat $TEMP_FILE | jq -rc ".[] | {appId: .id, orgId: .organizationId, appName: .name}" | while IFS= read -r line ; do
@@ -257,6 +267,8 @@ function generateMappingFile() {
 
     done
 
+    rm -rf $TEMP_FILE
+
 }
 
 
@@ -316,7 +328,7 @@ mkdir -p $LOGS_DIR
 
 echo ""
 echo "Creating the Mapping file"
-generateMappingFile
+generateMappingFile 
 echo "Done."
 
 #rm $LOGS_DIR
