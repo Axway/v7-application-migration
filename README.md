@@ -124,9 +124,9 @@ Be default the script uses `env.properties` from the Config directory but you ca
 
 The output file is defaulted to: `./Mapping/mappingAPP-product-generated.json`. And can be changed in the properties file directly.
 
-The script ignore all application present in the Amplify Agent organization as those one are already managed by the Discovery Agent.
+The script ignore all applications present in the Amplify Agent organization as those one are already managed by the Discovery Agent.
 
-Once the mapping file is generated, it is highly recommended to review its content to ensure the found product and product plan are the one to use for the subscription. If something does not match, it may result in error in the migration script.
+Once the mapping file is generated, it is highly recommended to review its content to ensure the found product and product plan are the one to use for the Marketplace subscription. If something does not match, it may result in error in the migration script and the field may contains `TBD` which mean the script was not able to determine the value.
 
 During the mapping creation, it is possible to receive **Warning** message:
 
@@ -145,7 +145,12 @@ For all these warning, `TBD` will be added in the mapping file under `productNam
 
 NOTE for credentialRequestDefinition:
 
+In order to find the appropriate CredentialRequestDefinition used for credential creation in the Marketplace, you need to:
 
+1. find the api service instance corresponding to a service: `axway central get apisi -q metadata.references.name=={api-service-logical-name} -o json | jq -rc '.[].name'`
+2. find the CredentialRequestDefinition Id from the asset resource that managed this service instance: `axway central get assetresource -q metadata.references.name=={api-service-instance-name-find-in-step-1} | jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id'`
+
+It is possible that the above command returns more than one result but the result should be identical as the service has a unique security.
 
 ### Step 3 - stop the Discovery and Traceability agents running in the environment
 
