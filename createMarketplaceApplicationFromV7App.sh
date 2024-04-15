@@ -674,7 +674,8 @@ function createAndProvisionCredential () {
                     echo "              Credential not found, creating it..."
 
                     # generate credential payload...
-                    jq -n -f ./jq/mkt-credential.jq --arg credentialTitle "$CREDENTIAL_ID" --arg credentialrequestdefinition "$CREDENTIAL_REQUEST_DEFINIITON" > "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json"
+                    CREDENTIAL_TITLE="$CREDENTIAL_TYPE - $i"
+                    jq -n -f ./jq/mkt-credential.jq --arg credentialTitle "$CREDENTIAL_TITLE" --arg credentialrequestdefinition "$CREDENTIAL_REQUEST_DEFINIITON" > "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json"
 
                     # add any mandatory information just for the query to not fail
                     logDebug "Finding fields for CRD ($CREDENTIAL_REQUEST_DEFINIITON)...."
@@ -719,6 +720,9 @@ function createAndProvisionCredential () {
                     putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$CREDENTIAL_ENVIRONMENT_NAME/credentials/$CREDENTIAL_NAME" "$LOGS_DIR/credential-$CREDENTIAL_ID-update.json" "$LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json"
                     error_post "Problem while updating the credential agent information..." "$LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json"
                     echo "                  Finalizer added to the credential..." >&2
+
+                    # add credential encrypted values
+                    # TODO
 
                     # Add x-agent-details
                     jq -n -f ./jq/agent-credential-details.jq --arg applicationID "$V7_APP_ID" --arg credentialReference $CREDENTIAL_HASH > $LOGS_DIR/credential-$CREDENTIAL_ID-agent-details.json
