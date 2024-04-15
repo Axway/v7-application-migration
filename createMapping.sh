@@ -312,6 +312,8 @@ echo "All pre-requisites are available"
 #login to the platform
 loginToPlatform
 
+mkdir -p $LOGS_DIR
+
 echo ""
 echo "Creating the Mapping file"
 generateMappingFile
