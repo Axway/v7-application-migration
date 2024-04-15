@@ -137,8 +137,15 @@ During the mapping creation, it is possible to receive **Warning** message:
 5. API (`V7_API_NAME`) is embedded in multiple assets. Mapping file not updated
 6. API (`V7_API_NAME`) is part of an asset (`ASSET_NAME`) that is not embed in any product.
 7. API (`V7_API_NAME`) is part of an asset (`ASSET_NAME`) that is embed in multiple products.
+8. API (`V7_API_NAME`) is part of a product (`PRODUCT_NAME_FOUND`) that has no plan.
+9. API (`V7_API_NAME`) is part of a product (`PRODUCT_NAME_FOUND`) that have multiple plans.
+10. API (`V7_API_NAME`) is not part of any plan quota of the product (`PRODUCT_NAME_FOUND`).
 
-For all these warning, `TBD` will be added in the mapping file under `productName` or `planName` or `environment` variable. If you choose to ignore those warning, the migration for the specific application will not be complete.
+For all these warning, `TBD` will be added in the mapping file under `productName` or `planName` or `environment` or `credentialRequestDefinitionId` variable. If you choose to ignore those warning, the migration for the specific application will not be complete.
+
+NOTE for credentialRequestDefinition:
+
+
 
 ### Step 3 - stop the Discovery and Traceability agents running in the environment
 

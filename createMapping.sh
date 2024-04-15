@@ -26,7 +26,7 @@ function findProductInformation() {
     local V7_API_NAME="$1"
     local V7_API_ID="$2"
     local OUTPUT_FILE="$3"
-    local PRODUCT_NAME_FOUMD=$TBD_VALUE
+    local PRODUCT_NAME_FOUND=$TBD_VALUE
     local PRODUCT_PLAN_NAME_FOUND=$TBD_VALUE
     local ENVIRONMENT_NAME_FOUMD=$TBD_VALUE
     local CREDENTIAL_REQUEST_DEFINITION_ID_FOUND="$TBD_VALUE"
@@ -116,23 +116,23 @@ function findProductInformation() {
                             then
                                     echo "---<<WARNING>> API ($V7_API_NAME) is part of an asset ($ASSET_NAME) that is embed in multiple products." >&2
                             else
-                                PRODUCT_NAME_FOUMD=$(cat $LOGS_DIR/api-srv-$V7_API_ID-product.json | jq -rc '.[].title')
+                                PRODUCT_NAME_FOUND=$(cat $LOGS_DIR/api-srv-$V7_API_ID-product.json | jq -rc '.[].title')
                                 PRODUCT_ID=$(cat $LOGS_DIR/api-srv-$V7_API_ID-product.json | jq -rc '.[].metadata.id')
-                                echo "          Found the product - $PRODUCT_NAME_FOUMD" >&2
+                                echo "          Found the product - $PRODUCT_NAME_FOUND" >&2
 
                                 # Now find the plan
                                 getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/productplans?query=metadata.references.id==$PRODUCT_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"
-                                error_exit "---<<WARNING>> Unable to retrieve Product plan linked to Product ($PRODUCT_NAME_FOUMD)" "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"
+                                error_exit "---<<WARNING>> Unable to retrieve Product plan linked to Product ($PRODUCT_NAME_FOUND)" "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"
 
                                 PRODUCT_PLAN_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"`
 
                                 if [[ $PRODUCT_PLAN_NUMBER == 0 ]]
                                 then
-                                    echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUMD) that has no plan. You need to create a plan to perform the migration successfully." >&2
+                                    echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUND) that has no plan. You need to create a plan to perform the migration successfully." >&2
                                 else 
                                     if [[ $PRODUCT_PLAN_NUMBER> 1 ]]
                                     then
-                                        echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUMD) that have multiple plans. You need to choose which one to apply" >&2
+                                        echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUND) that have multiple plans. You need to choose which one to apply" >&2
                                     else
                                         # only 1 plan found
                                         PRODUCT_PLAN_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].metadata.id')
@@ -140,7 +140,7 @@ function findProductInformation() {
 
                                         # find the Quota for the AssetResources.
                                         getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/quotas?query=metadata.references.name==$ASSET_RESOURCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
-                                        error_exit "---<<WARNING>> Unable to retrieve product ($PRODUCT_NAME_FOUMD) quotas" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
+                                        error_exit "---<<WARNING>> Unable to retrieve product ($PRODUCT_NAME_FOUND) quotas" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
 
                                         # filter with plan name
                                         jq '[.[] | select(.metadata.scope.name == "'"$PRODUCT_PLAN_NAME"'")]' $LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json > "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"
@@ -155,7 +155,7 @@ function findProductInformation() {
                                             # allow to clean up intermediate files
                                             noError=1
                                         else
-                                            echo "---<<WARNING>> API ($V7_API_NAME) is not part of any plan quota of the product ($PRODUCT_NAME_FOUMD. You need to create a plan for this service." >&2
+                                            echo "---<<WARNING>> API ($V7_API_NAME) is not part of any plan quota of the product ($PRODUCT_NAME_FOUND}. You need to create a plan for this service." >&2
                                         fi
                                     fi
                                 fi
@@ -177,7 +177,7 @@ function findProductInformation() {
     fi
 
     # compute final result
-    echo `jq -n -f ./jq/mapping-product-info.jq --arg productName "$PRODUCT_NAME_FOUMD" --arg productPlanName "$PRODUCT_PLAN_NAME_FOUND" --arg environmentName "$ENVIRONMENT_NAME_FOUMD" --arg credentialRequestDefinition "$CREDENTIAL_REQUEST_DEFINITION_ID_FOUND"`
+    echo `jq -n -f ./jq/mapping-product-info.jq --arg productName "$PRODUCT_NAME_FOUND" --arg productPlanName "$PRODUCT_PLAN_NAME_FOUND" --arg environmentName "$ENVIRONMENT_NAME_FOUMD" --arg credentialRequestDefinition "$CREDENTIAL_REQUEST_DEFINITION_ID_FOUND"`
 }
 
 #####################################
