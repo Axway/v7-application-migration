@@ -158,7 +158,7 @@ function providerProvisionManagedApplication() {
     local V7_APP_ID=$2
 
     # find the managedApplication corresponding to the Marketplace application
-    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
+    getFromCentralWithRetry "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
 
     # read existing information for the post (AccReq name + environment name)
     MANAGED_APP_NAME=$(cat $LOGS_DIR/app-managedapp-$MKT_APP_ID.json | jq -rc '.[].name')
@@ -345,7 +345,7 @@ function providerApproveSubscription() {
     local SUBSCRIPTION_ID=$1
 
     # find the susbcription name
-    getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/subscriptions?query=metadata.id==$SUBSCRIPTION_ID" "" "$LOGS_DIR/susbcription-$SUBSCRIPTION_ID.json"
+    getFromCentralWithRetry "$CENTRAL_URL/apis/catalog/v1alpha1/subscriptions?query=metadata.id==$SUBSCRIPTION_ID" "" "$LOGS_DIR/susbcription-$SUBSCRIPTION_ID.json"
 
     SUBSCRIPTION_APPROVAL=$(jq -rc '.[].approval.state' "$LOGS_DIR/susbcription-$SUBSCRIPTION_ID.json")
 
@@ -383,7 +383,7 @@ providerApproveAccesRequest() {
 
     # let's find the application name first:
     local URL="$CENTRAL_URL/apis/catalog/v1alpha1/applications?query=metadata.id=='$MKT_APPLICATION_ID'"
-    getFromCentral "$URL" "" "$LOGS_DIR/application-$MKT_APPLICATION_ID.json"
+    getFromCentralWithRetry "$URL" "" "$LOGS_DIR/application-$MKT_APPLICATION_ID.json"
     APPLICATION_NAME=$(cat "$LOGS_DIR/application-$MKT_APPLICATION_ID.json" | jq -rc '.[].name')
 
     # now we can find the access request
