@@ -40,16 +40,16 @@ function findProductInformation() {
     getFromCentral "$URL" "" "$LOGS_DIR/api-srv-$V7_API_ID-search.json"
     error_exit "---<<WARNING>> Unable to retrieve API ($V7_API_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-search.json"
 
-    API_NUMBER=`jq length $LOGS_DIR/api-srv-$V7_API_ID-search.json`
+    API_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-search.json"`
 
     if [[ $API_NUMBER == 0 ]]
     then
         echo "---<<WARNING>> API ($V7_API_NAME) not found. Please check that Discovery Agent has discovered API ($V7_API_NAME)" >&2
     else
         # there could be multiple API with same name, only the x-agent-details.externalAPIID can highlight the correct one
-        jq '[.[] | select(.["x-agent-details"].externalAPIID == "'"$V7_API_ID"'")]' $LOGS_DIR/api-srv-$V7_API_ID-search.json > $LOGS_DIR/api-srv-$V7_API_ID-filtered.json
+        jq '[.[] | select(.["x-agent-details"].externalAPIID == "'"$V7_API_ID"'")]' "$LOGS_DIR/api-srv-$V7_API_ID-search.json" > "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json"
 
-        NB_API_SERVICE_FOUND=`jq length $LOGS_DIR/api-srv-$V7_API_ID-filtered.json`
+        NB_API_SERVICE_FOUND=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json"`
 
         if [[ $NB_API_SERVICE_FOUND != 0 ]]
         then
@@ -58,16 +58,16 @@ function findProductInformation() {
                 echo "---<<WARNING>> API ($V7_API_NAME) has been found multiple times. Please remove any duplicate prior to proceed." >&2
             else
                 echo "          We found APIService we are looking for" >&2
-                APISERV_NAME=$(cat $LOGS_DIR/api-srv-$V7_API_ID-filtered.json | jq -rc '.[].name' )
-                ENVIRONMENT_NAME_FOUMD=$(cat $LOGS_DIR/api-srv-$V7_API_ID-filtered.json | jq -rc '.[].metadata.scope.name' )
+                APISERV_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].name' )
+                ENVIRONMENT_NAME_FOUMD=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].metadata.scope.name' )
                 
                 # find Asset
                 getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets?query=metadata.references.name==$APISERV_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
                 error_exit "---<<WARNING>> Unable to retrieve Asset linked to API ($V7_API_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
 
                 # filter the one(s) that match the Environment of the API Service.
-                jq '[.[] | select(.metadata.references[].name == "'"$ENVIRONMENT_NAME_FOUMD"'" and .metadata.references[].kind=="Environment")]' $LOGS_DIR/api-srv-$V7_API_ID-asset.json > $LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json
-                ASSET_NUMBER=`jq length $LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json`
+                jq '[.[] | select(.metadata.references[].name == "'"$ENVIRONMENT_NAME_FOUMD"'" and .metadata.references[].kind=="Environment")]' "$LOGS_DIR/api-srv-$V7_API_ID-asset.json" > "$LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json"
+                ASSET_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json"`
 
                 if [[ $ASSET_NUMBER == 0 ]]
                 then
@@ -79,21 +79,21 @@ function findProductInformation() {
                     else
                         echo "          We found 1 asset that manage API ($V7_API_NAME)..." >&2
                         # Read the asset name
-                        ASSET_NAME=$(cat $LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json | jq -rc '.[].name')
+                        ASSET_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json" | jq -rc '.[].name')
 
                         # read the asset resource to find the CRD_ID
                         # find API Service instance
                         getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ENVIRONMENT_NAME_FOUMD/apiserviceinstances?query=metadata.references.name==$APISERV_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
                         error_exit "---<<WARNING>> Unable to retrieve API Service Instance for ($APISERV_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
 
-                        APISERV_INSTANCE_NAME=$(cat $LOGS_DIR/api-srv-$V7_API_ID-instance.json | jq -rc '.[].name')
+                        APISERV_INSTANCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-instance.json" | jq -rc '.[].name')
 
                         # find AssetResources having the APIServiceInstance
                         getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets/$ASSET_NAME/assetresources?query=metadata.references.name==$APISERV_INSTANCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
                         error_exit "---<<WARNING>> Unable to retrieve Asset resources for asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
 
                         ASSET_RESOURCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json" | jq -rc '.[].name')
-                        ASSET_RESOURCE_CRD_ID=$(jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id' $LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json)
+                        ASSET_RESOURCE_CRD_ID=$(jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id' "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json")
 
                         if [[ $ASSET_RESOURCE_CRD_ID == '' ]]
                         then
@@ -106,7 +106,7 @@ function findProductInformation() {
                         getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/products?query=metadata.references.name==$ASSET_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
                         error_exit "---<<WARNING>> Unable to retrieve Product linked to Asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
 
-                        PRODUCT_NUMBER=`jq length $LOGS_DIR/api-srv-$V7_API_ID-product.json`
+                        PRODUCT_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product.json"`
 
                         if [[ $PRODUCT_NUMBER == 0 ]]
                         then
@@ -116,8 +116,8 @@ function findProductInformation() {
                             then
                                     echo "---<<WARNING>> API ($V7_API_NAME) is part of an asset ($ASSET_NAME) that is embed in multiple products." >&2
                             else
-                                PRODUCT_NAME_FOUND=$(cat $LOGS_DIR/api-srv-$V7_API_ID-product.json | jq -rc '.[].title')
-                                PRODUCT_ID=$(cat $LOGS_DIR/api-srv-$V7_API_ID-product.json | jq -rc '.[].metadata.id')
+                                PRODUCT_NAME_FOUND=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product.json" | jq -rc '.[].title')
+                                PRODUCT_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product.json" | jq -rc '.[].metadata.id')
                                 echo "          Found the product - $PRODUCT_NAME_FOUND" >&2
 
                                 # Now find the plan
@@ -143,9 +143,9 @@ function findProductInformation() {
                                         error_exit "---<<WARNING>> Unable to retrieve product ($PRODUCT_NAME_FOUND) quotas" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
 
                                         # filter with plan name
-                                        jq '[.[] | select(.metadata.scope.name == "'"$PRODUCT_PLAN_NAME"'")]' $LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json > "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"
+                                        jq '[.[] | select(.metadata.scope.name == "'"$PRODUCT_PLAN_NAME"'")]' "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json" > "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"
 
-                                        QUOTA_NUMBER=`jq length $LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json`
+                                        QUOTA_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"`
 
                                         if [[ $QUOTA_NUMBER != 0 ]]
                                         then 
@@ -173,7 +173,7 @@ function findProductInformation() {
     if [[ $noError == 1 ]]
     then
         # clean up intermediate files when no errors occured
-        rm -rf $LOGS_DIR/api-srv-$V7_API_ID*.json
+        rm -rf "$LOGS_DIR/api-srv-$V7_API_ID*.json"
     fi
 
     # compute final result
@@ -198,10 +198,10 @@ function generateMappingFile() {
         getFromApiManager "applications" $TEMP_FILE
     else
         echo "Reading single application: $APP_NAME_TO_MIGRATE" >&2
-        getFromApiManager "applications" $LOGS_DIR/tmp.json
+        getFromApiManager "applications" "$LOGS_DIR/tmp.json"
         # need to return an array for it to work regardless it is a single or multiple.
-        cat $LOGS_DIR/tmp.json | jq  '[.[] | select(.name=="'"$APP_NAME_TO_MIGRATE"'")]' >  $TEMP_FILE
-        rm -rf $LOGS_DIR/tmp.json
+        cat "$LOGS_DIR/tmp.json" | jq  '[.[] | select(.name=="'"$APP_NAME_TO_MIGRATE"'")]' >  $TEMP_FILE
+        rm -rf "$LOGS_DIR/tmp.json"
     fi
 
     # loop over the result and keep interesting data (name / description / org)
@@ -226,10 +226,10 @@ function generateMappingFile() {
             jq -n -f ./jq/mapping-template.jq --arg applicationName "$V7_APP_NAME" --arg owningTeam "$v7_ORG_NAME" > $MAPPING_DIR/mapping-app.json
 
             # for each application, find the API.
-            getFromApiManager "applications/$V7_APP_ID/apis" "$LOGS_DIR/app-$V7_APP_ID-apis.json" > $LOGS_DIR/app-api-$V7_APP_ID-list.json
+            getFromApiManager "applications/$V7_APP_ID/apis" "$LOGS_DIR/app-$V7_APP_ID-apis.json" > "$LOGS_DIR/app-api-$V7_APP_ID-list.json"
 
             # for each API, find the product and plan that match it
-            cat $LOGS_DIR/app-$V7_APP_ID-apis.json | jq -rc ".[] | {apiId: .apiId}" | while IFS= read -r appApiLine ; do
+            cat "$LOGS_DIR/app-$V7_APP_ID-apis.json" | jq -rc ".[] | {apiId: .apiId}" | while IFS= read -r appApiLine ; do
 
                 V7_API_ID=$(echo $appApiLine | jq -rc '.apiId')
                 V7_API_NAME=$(getAPIM_APIName "$V7_API_ID")
@@ -259,10 +259,10 @@ function generateMappingFile() {
             mv $MAPPING_DIR/tempFile.json $OUTPUT_FILE
 
             # clean intermediate files
-            rm -rf $MAPPING_DIR/mapping-app.json
-            rm -rf $MAPPING_DIR/mapping-api.json
-            rm -rf $LOGS_DIR/app-$V7_APP_ID-apis.json
-            rm -rf $LOGS_DIR/app-api-$V7_APP_ID-list.json
+            rm -rf "$MAPPING_DIR/mapping-app.json"
+            rm -rf "$MAPPING_DIR/mapping-api.json"
+            rm -rf "$LOGS_DIR/app-$V7_APP_ID-apis.json"
+            rm -rf "$LOGS_DIR/app-api-$V7_APP_ID-list.json"
         fi
 
     done

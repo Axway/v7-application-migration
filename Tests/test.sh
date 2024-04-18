@@ -9,7 +9,7 @@ source ../config/envLBEAN018.properties
 source ../utils.sh
 
 # Global variables
-LOGS=./logs
+LOGS_DIR=./logs
 TOOL_DIR=../Tools
 CONFIG_DIR=../config
 
@@ -28,6 +28,15 @@ testHashingCredential() {
     CRED_HASH=$(hashingCredentialValue "3_P" "2abfcd4d-92a9-4b64-b32e-fa945325ada7" "4e0b8030-3feb-4dd4-b98c-6ce60654e9e4")
     echo "Hash for unknown: $CRED_HASH"
 }
+
+testCryptingCredentialValue() {
+
+    PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\nMIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAoAb87iHGF4kWDlrApt2V\ngJagpzheJrzk7Y64pD3xBvlO011TJgKJptWEzO6ejJLJK0F8G1bG23Q2yoPkX/j1\n58fSXnlz3o5Jj/mOl46X8rCcwAPYx3yZ3LLUbyKYLfyfBcStj4C/7U4Symb6fpgc\n1XxQ/shBRxq7XBUtQ//XGMlszUeiwTpQAh9dFaX0gKR0EDooRFD695HiRRrECcKx\nFdJ7WuUOCLcy9JBwss3lFK7H+Z+zS99RNvulhyTsJWo0ZRHfYm7K5itYq+Rn9skg\noGC2xc16QP9ZrONvTLW1HwmjOAba7Hv2bIU2iKI7aMHz6iWUD49aorhsJzcSrQtS\nubKe7nNuLDRlcbg2SWihuDhVGKJJpnufy23svUTRtbOEi5kSmE6/Oe8yeXkogFrM\nD2gfxX000s+0P/OsVDXoMF7j781fKzkkbR7X8AJG1/CJeN4dpqJKk/pvNYJmM+Iq\nCKSTrYUCrlyIhXJ8bAPpqMu7fF0aZkDtWun7wjMIDDHgaLT9eNPFlK2V6dBcgptQ\nqDN/0GaWBI/Aqoz67q/wTKHuqgh4pOMp5cK3J9z85sZtS53Q/y+5iGvgwsZOW5ox\n6EaV5hPPRZJgGA1cc+qWXHhN5Gbw011bSQZoq3g8Uw7TukoWiNbLhY9qNAlKlU/r\npiE9edQM7dgkjwgC/e9713kCAwEAAQ==\n-----END PUBLIC KEY-----"
+
+    CRED_CRYPTED=$(cryptingCredentialValue "$PUBLIC_KEY" "VALUE_TO_ENCRYPT")
+    echo "Crypted value: $CRED_CRYPTED"
+}
+
 
 testIsPlatformTeamExisting() {
 
@@ -260,6 +269,26 @@ testFindFieldValueFromCRD() {
 
 }
 
+loginFromApi() {
+    CLIENT_ID="sa-for-cli_a1d6e0a8-131f-4c1c-9d47-b4b357d00294"
+    CLIENT_SECRET="f7b87aca-ab3e-4156-abc9-932a253e9519"  
+
+    BASIC_AUTH=$(echo -ne "$CLIENT_ID:$CLIENT_SECRET" | base64 --wrap 0)
+   
+    curl -s --location "https://login.axway.com/auth/realms/Broker/protocol/openid-connect/token" --header 'Content-Type: application/x-www-form-urlencoded' --header 'Authorization: Basic '$BASIC_AUTH --data-urlencode 'grant_type=client_credentials' --data-urlencode 'scope=openid' --data-urlencode 'client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer'  > $LOGS/connect.json
+
+#	PLATFORM_ORGID=$(axway auth list --json | jq -r '.[0] .org .id')
+	PLATFORM_TOKEN=$(cat $LOGS/connect.json | jq -rc '.access_token ')
+    echo "Token:$PLATFORM_TOKEN"
+#	ORGANIZATION_REGION=$(axway auth list --json | jq -r '.[0] .org .region ')
+#	USER_GUID=$(axway auth list --json | jq -r '.[0] .user .guid ')
+	echo " and set CENTRAL_URL to " 
+	CENTRAL_URL=$(getCentralURL)
+	echo "$CENTRAL_URL"
+	echo "OK we are good."
+
+}
+
 ################# MAIN #################
 #testHashingCredential
 #testSanitizingAppName
@@ -274,4 +303,6 @@ testFindFieldValueFromCRD() {
 #testString
 #testAddingJson ""
 #testAddingJson "[\"idpTokenURL\",\"second\"]"
-testFindFieldValueFromCRD
+#testFindFieldValueFromCRD
+testCryptingCredentialValue
+#loginFromApi

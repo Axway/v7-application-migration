@@ -47,24 +47,30 @@ The Marketplace credentials are similar to Axway API Manager credentials (API ke
 
 The following table shows the mapping between Axway API Manager Application and Enterprise Marketplace objects:
 
-| Initial Objects                      | Marketplace subscription | Marketplace application | Marketplace Access request | Marketplace credential |
-|--------------------------------------|--------------------------|-------------------------|----------------------------|------------------------|
-|                                      |                          |                         |                            |                        |
-| **API MAnager Application**          |                          |                         |                            |                        |
-|  Name                                |                          | Title                   | Tile=Name-ApiName          | Generated title        |
-|  Description                         |                          | Description             |                            |                        |
-|  icon                                |                          | Icon                    |                            |                        |
-|  Organization name                   | Owning team name         | Owning team name        | Owning team name           | Owning team name       |
-|  Access Api names                    |                          |                         | APIService name            |                        |
-|  Credential API KEY                  |                          |                         |                            | Name + hash            |
-|  Credential OAUTH - CLIENT ID        |                          |                         |                            | Name + hash            |
-|  Credential EXTERNAL - CLIENT ID     |                          |                         |                            | Name + hash            |
-|                                      |                          |                         |                            |                        |
-| **Mapping file**                     |                          |                         |                            |                        |
-|  Product name                        | Product ID               |                         | Product ID                 |                        |
-|                                      |                          |                         | Product version ID         |                        |
-|  Plan name                           | Plan ID                  |                         |                            |                        |
-|  CredentialRequestDefinition         |                          |                         |                            | CRD_ID                 |
+| Initial Objects                      | Marketplace subscription | Marketplace application | Marketplace Access request | Marketplace credential   |
+|--------------------------------------|--------------------------|-------------------------|----------------------------|--------------------------|
+|                                      |                          |                         |                            |                          |
+| **API MAnager Application**          |                          |                         |                            |                          |
+|  Name                                |                          | Title                   | Tile=Name-ApiName          | Generated title          |
+|  Description                         |                          | Description             |                            |                          |
+|  icon                                |                          | Icon                    |                            |                          |
+|  Organization name                   | Owning team name         | Owning team name        | Owning team name           | Owning team name         |
+|  Access Api names                    |                          |                         | APIService name            |                          |
+|  Credential API KEY                  |                          |                         |                            | Name + crypted value     |
+|  Credential OAUTH - CLIENT ID        |                          |                         |                            | Name + crypted secret    |
+|  Credential EXTERNAL - CLIENT ID     |                          |                         |                            | Name + no crypted secret |
+|                                      |                          |                         |                            |                          |
+| **Mapping file**                     |                          |                         |                            |                          |
+|  Product name                        | Product ID               |                         | Product ID                 |                          |
+|                                      |                          |                         | Product version ID         |                          |
+|  Plan name                           | Plan ID                  |                         |                            |                          |
+|  CredentialRequestDefinition         |                          |                         |                            | CRD_ID                   |
+
+Note regarding Credentials:
+
+* After the migration, consumer will be able to see his credential secret (API Key or oauth credential secret) for 3 days in the Marketplace.
+* For **External credential**, no value will be provided as the secret is not store in the v7 application but on the IDP. Consumer will have to contact the provider to get his secret if he lost it or request a new one.
+* **HTTP Basic** credentials are not handled.
 
 ## Migration steps
 

@@ -109,8 +109,8 @@ isPlatformTeamExisting() {
     TEAM_GUID=""
 
     # read the team
-    axway team view $ORG_ID "$TEAM_NAME" > $LOGS_DIR/team.txt
-    TEAM_GUID_TMP=$(cat $LOGS_DIR/team.txt | grep "Team GUID")
+    axway team view $ORG_ID "$TEAM_NAME" > "$LOGS_DIR/team.txt"
+    TEAM_GUID_TMP=$(cat "$LOGS_DIR/team.txt" | grep "Team GUID")
 
     if [[ $TEAM_GUID_TMP != "" ]] 
     then
@@ -119,7 +119,7 @@ isPlatformTeamExisting() {
         TEAM_GUID=${TEAM_GUID_TMP:14}
     fi
 
-	rm -rf $LOGS_DIR/team.txt
+	rm -rf "$LOGS_DIR/team.txt"
     echo $TEAM_GUID
 }
 
@@ -134,7 +134,7 @@ getAPIM_OrganizationName()
 
     retVal=$(getFromApiManager "organizations/$V7_ORGID" "$LOGS_DIR/organization.json" ".name")
     
-	rm -rf $LOGS_DIR/organization.json
+	rm -rf "$LOGS_DIR/organization.json"
     
     echo "$retVal"
 }
@@ -150,7 +150,7 @@ getAPIM_APIName()
 
     retVal=$(getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json" ".name")
 
-	rm -rf $LOGS_DIR/api-$V7_API_ID.json
+	rm -rf "$LOGS_DIR/api-$V7_API_ID.json"
     
     echo "$retVal"
 }
@@ -379,7 +379,7 @@ function postToMarketplace() {
 	if [[ $3 == "" ]]
 	then 
 		# just in case...
-		outputFile=$LOGS_DIR/postToMarketplaceResult.json
+		outputFile="$LOGS_DIR/postToMarketplaceResult.json"
 	else
 		outputFile=$3
 	fi
@@ -434,7 +434,7 @@ getFromCentralWithRetry() {
 	local URL=$1
 	local JQ_EXPRESSION=$2
 	local OUTPUT_FILE=$3
-	local ATTEMPT_MAX=3
+	local ATTEMPT_MAX=5
 	local SLEEP_TIME=1
 
 	until [ $ATTEMPT_MAX -le 0 ]
@@ -482,7 +482,7 @@ function getFromCentral() {
 
 	if [[ $2 != "" ]]
 	then
-		echo `cat $outputFile | jq -r "$2"`
+		echo `cat "$outputFile" | jq -r "$2"`
 	fi
 }
 
@@ -537,6 +537,25 @@ hashingCredentialValue() {
     echo "$RETURN_VAL"
 }
 
+#############################
+# crypting the credentials so that Marketplace can recognize them
+# run the tool ./keytool --public_key ./public_key.pem --data_file ./value.txt
+#
+# Input parameters
+# - $1: file containing the public key
+# - $2: value to encypt
+# Output - the corresponding crypted value
+#############################
+cryptingCredentialValue() {
+	echo "$2" > "$LOGS_DIR/value.txt"
+
+	# tools output = fileName.encrypted
+	$TOOL_DIR/keytool-windows-amd64 --public_key "$1" --data_file "$LOGS_DIR/value.txt"
+	RETURN_VAL=$(cat "$LOGS_DIR/value.txt.encrypted")
+
+	rm -rf "$LOGS_DIR/value.txt.encrypted"
+	echo "$RETURN_VAL"
+}
 
 #############################################
 # Sanitize name and remove space, backslash
