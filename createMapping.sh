@@ -173,7 +173,7 @@ function findProductInformation() {
     if [[ $noError == 1 ]]
     then
         # clean up intermediate files when no errors occured
-        rm -rf "$LOGS_DIR/api-srv-$V7_API_ID*.json"
+        rm -rf $LOGS_DIR/api-srv-"$V7_API_ID"*.json
     fi
 
     # compute final result
@@ -201,7 +201,7 @@ function generateMappingFile() {
         getFromApiManager "applications" "$LOGS_DIR/tmp.json"
         # need to return an array for it to work regardless it is a single or multiple.
         cat "$LOGS_DIR/tmp.json" | jq  '[.[] | select(.name=="'"$APP_NAME_TO_MIGRATE"'")]' >  $TEMP_FILE
-        rm -rf "$LOGS_DIR/tmp.json"
+        rm -rf $LOGS_DIR/tmp.json
     fi
 
     # loop over the result and keep interesting data (name / description / org)
@@ -259,10 +259,10 @@ function generateMappingFile() {
             mv $MAPPING_DIR/tempFile.json $OUTPUT_FILE
 
             # clean intermediate files
-            rm -rf "$MAPPING_DIR/mapping-app.json"
-            rm -rf "$MAPPING_DIR/mapping-api.json"
-            rm -rf "$LOGS_DIR/app-$V7_APP_ID-apis.json"
-            rm -rf "$LOGS_DIR/app-api-$V7_APP_ID-list.json"
+            rm -rf $MAPPING_DIR/mapping-app.json
+            rm -rf $MAPPING_DIR/mapping-api.json
+            rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apis.json
+            rm -rf $LOGS_DIR/app-api-"$V7_APP_ID"-list.json
         fi
 
     done

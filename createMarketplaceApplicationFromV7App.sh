@@ -33,13 +33,13 @@ function createAmplifyAgentOrganizationIfNotExisting() {
         ORG_ID=$(cat "$LOGS_DIR/agent-organization-created.json" | jq -rc '.id')
 
         # delete intermediate files
-        rm -rf "$LOGS_DIR/agent-organization*.json"
+        rm -rf $LOGS_DIR/agent-organization*.json
     else
          echo "$ORG_NAME organization does exist." >&2
     fi
 
     # delete intermediate file
-    rm -rf "$LOGS_DIR/organizations.json"
+    rm -rf $LOGS_DIR/organizations.json
 
     # return the ORG_ID
     echo $ORG_ID
@@ -94,8 +94,8 @@ function grantApiAccessToAmplifyAgentsOrganization () {
     postToApiManagerUrlEncoded "proxies/grantaccess" "$LOGS_DIR/api-$V7_API_ID-grantaccess.txt" "$LOGS_DIR/api-$V7_API_ID-grantaccess-done.json"
 
     # cleanup intermediate files
-    rm -rf "$LOGS_DIR/api-$V7_API_ID-grantaccess.txt"
-    rm -rf "$LOGS_DIR/api-$V7_API_ID-grantaccess-done.json"
+    rm -rf $LOGS_DIR/api-"$V7_API_ID"-grantaccess.txt
+    rm -rf $LOGS_DIR/api-"$V7_API_ID"-grantaccess-done.json
 }
 
 ############################################################
@@ -138,7 +138,7 @@ function createMarketplaceApplicationIfNotExisting() {
     fi
 
     # clean up temporary files
-    rm -rf "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED*.json"
+    rm -rf $LOGS_DIR/mkt-application-"$MKT_APP_NAME_SANITIZED"*.json
 
     echo "$MP_APPLICATION_ID"
 }
@@ -189,9 +189,9 @@ function providerProvisionManagedApplication() {
     error_exit "Problem while updating the access request status..." "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json"
 
     #clean up intermediate files
-    rm -rf "$LOGS_DIR/app-managedapp-$MKT_APP_ID*.json"
-    rm -rf "$LOGS_DIR/agent-access-details-$MKT_APP_ID.json"
-    rm -rf "$LOGS_DIR/agent-status-success.json"
+    rm -rf $LOGS_DIR/app-managedapp-"$MKT_APP_ID"*.json
+    rm -rf $LOGS_DIR/agent-access-details-"$MKT_APP_ID".json
+    rm -rf $LOGS_DIR/agent-status-success.json
 }
 
 ####################################################################
@@ -249,8 +249,8 @@ function createMarketplaceSubscriptionIfNotExisting() {
     fi
 
     # clean up intermediate files
-    rm -rf "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE*.json"
-    rm -rf "$LOGS_DIR/mkt-subscription-product-*.json"
+    rm -rf $LOGS_DIR/nkt-subscription-"$PRODUCT_NAME_WITHOUT_SPACE"*.json
+    rm -rf $LOGS_DIR/mkt-subscription-product-*.json
 
     echo "$MP_SUBSCRIPTION_ID"                        
 }
@@ -327,8 +327,8 @@ function createMarketplaceAccessRequestIfNotExisting() {
     fi
 
     # clean up tenporary files
-    rm -rf "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME*.json"
-    rm -rf "$LOG_FILE"
+    rm -rf $LOGS_DIR/mkt-application-"$SANITIZE_APPLICATION_NAME"*.json
+    rm -rf $LOG_FILE
 
     echo $MP_ACCESS_REQUEST_ID
 }
@@ -365,7 +365,7 @@ function providerApproveSubscription() {
     fi
 
     # clean up intermediate files
-    rm -rf "$LOGS_DIR/susbcription-$SUBSCRIPTION_ID*"
+    rm -rf $LOGS_DIR/susbcription-"$SUBSCRIPTION_ID"*
 }
 
 ##################################################
@@ -401,7 +401,7 @@ providerApproveAccesRequest() {
     fi
 
     # clean up intermediate files
-    rm -rf "$LOGS_DIR/application*"
+    rm -rf $LOGS_DIR/application*
 }
 
 #####################################################################
@@ -456,9 +456,9 @@ function providerProvisionAccesRequest() {
 #    error_post "Problem while updating the access request status..." "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
 
     #clean up intermediate files
-    rm -rf "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID*.json"
-    rm -rf "$LOGS_DIR/agent-access-details-$V7_APP_ID.json"
-    rm -rf "$LOGS_DIR/agent-status-success.json"
+    rm -rf $LOGS_DIR/accrequest-"$MKT_ACCESS_REQUEST_ID"*.json
+    rm -rf $LOGS_DIR/agent-access-details-"$V7_APP_ID".json
+    rm -rf $LOGS_DIR/agent-status-success.json
 }
 
 ###################################################
@@ -800,16 +800,17 @@ function createAndProvisionCredential () {
                     echo "              Credential provisioning done." >&2
 
                     # clean up temporary file
-                    rm -rf "$LOGS_DIR/credential-$CREDENTIAL_ID*.json"
-                    rm -rf "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID*.json"
-                    rm -rf "$LOGS_DIR/value.txt"
+                    rm -rf $LOGS_DIR/mkt-application-"$MKT_APP_ID"-credential-"$CREDENTIAL_ID"*.json
+                    rm -rf $LOGS_DIR/value.txt
                 fi
+                
+                # clean up intermediate files
+                rm -rf $LOGS_DIR/credential-"$CREDENTIAL_ID"*.json
+                rm -rf $LOGS_DIR/crds-"$CREDENTIAL_REQUEST_DEFINIITON".json
             else
                 echo "---<<WARNING>> No credential of type $CREDENTIAL_TYPE found in the mapping." >&2
             fi
 
-            # clean up intermediate files
-            rm -rf "$LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json"
 
 
         }
@@ -849,9 +850,9 @@ function moveV7appToAmplifyAgentsOrganization() {
     echo "              $MANAGED_APP_NAME created and moved into Amplify Agents organization" >&2
 
     # clean up intermediate files
-    rm -rf "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
-    rm -rf "$LOGS_DIR/app-move.json"
-    rm -rf "$LOGS_DIR/app-move-result.json"
+    rm -rf $LOGS_DIR/app-managedapp-"$MKT_APP_ID".json
+    rm -rf $LOGS_DIR/app-move.json
+    rm -rf $LOGS_DIR/app-move-result.json
 }
 
 ########################################################
@@ -873,7 +874,7 @@ migrate_v7_application() {
         getFromApiManager "applications" "$LOGS_DIR/tmp.json"
         # need to return an array for it to work regardless it is a single or multiple.
         cat "$LOGS_DIR/tmp.json" | jq  '[.[] | select(.name=="'"$APP_NAME_TO_MIGRATE"'")]' >  $TEMP_FILE
-        rm -rf "$LOGS_DIR/tmp.json"
+        rm -rf $LOGS_DIR/tmp.json
     fi
 
     # loop over the result and keep interesting data (name / description / org)
@@ -971,7 +972,7 @@ migrate_v7_application() {
                 done
 
                 # clean up intermediate file
-                rm -rf "$LOGS_DIR/app-$V7_APP_ID-apis.json"
+                rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apis.json
 
                 # provison the ManageApplication - created only once an accessrequest is added to the application
                 echo "      Provisioning the corresponding Managed application...." 
@@ -999,9 +1000,9 @@ migrate_v7_application() {
                 createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-external.json" "$CREDENTIAL_TYPE_EXTERNAL" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
 
                 # clean up intermediate files
-                rm -rf "$LOGS_DIR/app-$V7_APP_ID-apikeys.json"
-                rm -rf "$LOGS_DIR/app-$V7_APP_ID-oauth.json" 
-                rm -rf "$LOGS_DIR/app-$V7_APP_ID-external.json"
+                rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apikeys.json
+                rm -rf $LOGS_DIR/app-"$V7_APP_ID"-oauth.json
+                rm -rf $LOGS_DIR/app-"$V7_APP_ID"-external.json
                 rm -rf "$PUBLIC_KEY_FILE"
 
                 ## Update V7 application: move it to Amplify Agents org / update its name so that TA still work
@@ -1013,7 +1014,7 @@ migrate_v7_application() {
             fi
 
             # clean up intermediate files
-            rm -rf "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json"
+            rm -rf $LOGS_DIR/mapping-"$V7_APP_NAME_SANITIZED".json
 
         else # It is  the Amplify Agents org - nothing to do
             echo "  Skipping team / app creation as already present in Marketplace" >&2

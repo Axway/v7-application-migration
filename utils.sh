@@ -119,7 +119,7 @@ isPlatformTeamExisting() {
         TEAM_GUID=${TEAM_GUID_TMP:14}
     fi
 
-	rm -rf "$LOGS_DIR/team.txt"
+	rm -rf $LOGS_DIR/team.txt
     echo $TEAM_GUID
 }
 
@@ -134,7 +134,7 @@ getAPIM_OrganizationName()
 
     retVal=$(getFromApiManager "organizations/$V7_ORGID" "$LOGS_DIR/organization.json" ".name")
     
-	rm -rf "$LOGS_DIR/organization.json"
+	rm -rf $LOGS_DIR/organization.json
     
     echo "$retVal"
 }
@@ -150,7 +150,7 @@ getAPIM_APIName()
 
     retVal=$(getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json" ".name")
 
-	rm -rf "$LOGS_DIR/api-$V7_API_ID.json"
+	rm -rf $LOGS_DIR/api-"$V7_API_ID".json
     
     echo "$retVal"
 }
@@ -312,7 +312,7 @@ function getMarketplaceProductIdFromProductName {
 	cat $TEMP_FILE_NAME | jq -r '[ .items[] | select( .title=="'"$PRODUCT_NAME"'" ) ]' | jq -rc '.[] | {productId: .id, productLatestVersionId: .latestVersion.id}'
 
 	# remove intermediate files
-	#rm -rf $TEMP_FILE_NAME
+	rm -rf "$TEMP_FILE_NAME"
 
 }
 
@@ -340,7 +340,7 @@ function getMarketplacePlanIdFromPlanName {
 	cat $TEMP_FILE_NAME | jq -r '[ .items[] | select( .title=="'"$PLAN_NAME"'" ) ]' | jq -rc '.[].id'
 
 	# remove intermediate files
-	rm -rf $TEMP_FILE_NAME
+	rm -rf "$TEMP_FILE_NAME"
 }
 
 
@@ -553,7 +553,7 @@ cryptingCredentialValue() {
 	$TOOL_DIR/keytool-windows-amd64 --public_key "$1" --data_file "$LOGS_DIR/value.txt"
 	RETURN_VAL=$(cat "$LOGS_DIR/value.txt.encrypted")
 
-	rm -rf "$LOGS_DIR/value.txt.encrypted"
+	rm -rf $LOGS_DIR/value.txt.encrypted
 	echo "$RETURN_VAL"
 }
 
