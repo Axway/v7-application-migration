@@ -1,4 +1,4 @@
-# Axway API Manager Application Migration
+# Axway API Manager application migration to Makretplace applications
 
 Tool for migrating Axway API Manager applications into Marketplace applications
 This document describes all the steps necessary to migrate your Axway API Manager Applications to the Amplify Enterprise Marketplace.
