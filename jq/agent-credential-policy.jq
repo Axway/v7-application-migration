@@ -1,0 +1,7 @@
+{
+    "policies": {
+        "expiry": {
+            "timestamp": $expirationDate
+        }
+    }
+}

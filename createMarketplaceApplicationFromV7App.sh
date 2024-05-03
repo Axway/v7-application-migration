@@ -401,7 +401,7 @@ providerApproveAccesRequest() {
     fi
 
     # clean up intermediate files
-    rm -rf $LOGS_DIR/application*
+    rm -rf "$LOGS_DIR/application-$APPLICATION_NAME*"
 }
 
 #####################################################################
@@ -782,6 +782,31 @@ function createAndProvisionCredential () {
                     error_post "Problem while updating the credential agent details info..." "$LOGS_DIR/credential-$CREDENTIAL_ID-data-updated.json"
                     echo "                  encrypted ddata added to the credential..." >&2
 
+                    # Add credential policy
+                    if [[ $ADD_CREDENTIAL_EXPIRATION_POLICY == 1 ]]
+                    then
+                        # does the env has a credential policy?
+                        getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$CREDENTIAL_ENVIRONMENT_NAME" "" "$LOGS_DIR/env-$CREDENTIAL_ENVIRONMENT_NAME.json"
+                        ENVIRONMENT_POLICY=$(cat "$LOGS_DIR/env-$CREDENTIAL_ENVIRONMENT_NAME.json"  | jq -rc '.policies.credentials.expiry.period')
+
+                        if [[ $ENVIRONMENT_POLICY != null ]]
+                        then
+                            # compute the expiration date
+                            EXPIRATION_DATE=$(date -d "+$ENVIRONMENT_POLICY days" --utc +%FT%T.%3N%z)
+                            jq -n -f ./jq/agent-credential-policy.jq --arg expirationDate "$EXPIRATION_DATE" > "$LOGS_DIR/credential-$CREDENTIAL_ID-policy.json"
+
+                            # post to central
+                            putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$CREDENTIAL_ENVIRONMENT_NAME/credentials/$CREDENTIAL_NAME/policies" "$LOGS_DIR/credential-$CREDENTIAL_ID-policy.json" "$LOGS_DIR/credential-$CREDENTIAL_ID-policy-updated.json"
+                            error_post "Problem while updating the credential expiration policy info..."$LOGS_DIR/credential-$CREDENTIAL_ID-policy-updated.json
+                            echo "                  expiration policy added to the credential..." >&2
+
+                            # clean up intermediate files
+                            rm -rf "$LOGS_DIR/env-$CREDENTIAL_ENVIRONMENT_NAME.json"
+                        else
+                            echo "                  No expiration policy present in environment [$CREDENTIAL_ENVIRONMENT_NAME]... credential will be created with expiration date." >&2
+                        fi
+                    fi
+
                     # Add x-agent-details
                     jq -n -f ./jq/agent-credential-details.jq --arg applicationID "$V7_APP_ID" --arg credentialReference $CREDENTIAL_HASH > "$LOGS_DIR/credential-$CREDENTIAL_ID-agent-details.json"
 
@@ -839,7 +864,7 @@ function moveV7appToAmplifyAgentsOrganization() {
     echo "              Finding the new name for $V7_APPLICATION_NAME_TO_MIGRATE" >&2
     # read ManagedApplication logical name based on the Marketplace application ID
     MANAGED_APP_NAME=$(getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" ".[].name" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json")
-    echo "              New name found: $MANAGED_APP_NAME"
+    echo "              New name found: $MANAGED_APP_NAME" >&2
 
     # read it and replace name and organizationID
     echo "              Updating $V7_APPLICATION_NAME_TO_MIGRATE to $MANAGED_APP_NAME..." >&2
@@ -1006,7 +1031,7 @@ migrate_v7_application() {
                 rm -rf "$PUBLIC_KEY_FILE"
 
                 ## Update V7 application: move it to Amplify Agents org / update its name so that TA still work
-                echo "      Updating v7 application $V7_APP_NAME...."
+                echo "      Updating v7 application $V7_APP_NAME...." >&2
                 moveV7appToAmplifyAgentsOrganization "$V7_APP_NAME" "$V7_APP_ID" "$MKT_APP_ID" "$AGENT_V7_ORG_ID"
                 echo "      v7 application [$V7_APP_NAME] updated and move to the Amplify Agents organization"
             else

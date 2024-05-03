@@ -71,6 +71,7 @@ Note regarding Credentials:
 * After the migration, consumer will be able to see his credential secret (API Key or oauth credential secret) for 3 days in the Marketplace.
 * For **External credential**, no value will be provided as the secret is not store in the v7 application but on the IDP. Consumer will have to contact the provider to get his secret if he lost it or request a new one.
 * **HTTP Basic** credentials are not handled.
+* Expiration policy: if the environment is setup to handle credential expiration policy, the script can automatically add it to the credentials. For that use the option `ADD_CREDENTIAL_EXPIRATION_POLICY=1` from the **env.properties** file. By default this configuration is not activated
 
 ## Migration steps
 
