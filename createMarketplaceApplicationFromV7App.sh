@@ -763,7 +763,7 @@ function createAndProvisionCredential () {
 #                    logDebug "CRDNAME=$CREDENTIAL_NAME-"
 
                     # mark it as provisioned (add the finalizers)
-                    jq --slurpfile file2 ./jq/agent-credfential-finalizer.json '(.[].finalizers += $file2)' "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json" > "$LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json"
+                    jq --slurpfile file2 ./jq/agent-credential-finalizer.json '(.[].finalizers += $file2)' "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json" > "$LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json"
 
                     # Remove references, status and resourceVersion to avoid issues.
                     cat "$LOGS_DIR/credential-$CREDENTIAL_ID-finalizer.json"  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references?, .metadata.resourceVersion? )' > "$LOGS_DIR/credential-$CREDENTIAL_ID-update.json"
