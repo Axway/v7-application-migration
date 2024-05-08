@@ -510,7 +510,7 @@ function findCredentialRequestDefinition() {
                         ;;
                     "$CREDENTIAL_TYPE_OAUTH")
 #                        logDebug "Searching OAuth"
-                        if [[ $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_PUBLIC_KEY || $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_SECRET ]]
+                        if [[ $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_PUBLIC_KEY || $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_SECRET || $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_PUBLIC_KEY_2 || $CRD_NAME == $CREDENTIAL_DEFINTION_OAUTH_SECRET_2 ]]
                         then
                             CRD_FOUND=$CRD_ID  
                             break
