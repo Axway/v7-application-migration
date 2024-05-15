@@ -192,6 +192,8 @@ function providerProvisionManagedApplication() {
     rm -rf $LOGS_DIR/app-managedapp-"$MKT_APP_ID"*.json
     rm -rf $LOGS_DIR/agent-access-details-"$MKT_APP_ID".json
     rm -rf $LOGS_DIR/agent-status-success.json
+
+    echo "$MANAGED_APP_NAME"
 }
 
 ####################################################################
@@ -672,11 +674,12 @@ function provisionCredentialValueForMarketplace () {
 function createAndProvisionCredential () {
 
     local V7_APP_ID=$1
-    local CREDENTIAL_LIST=$2
-    local CREDENTIAL_TYPE=$3
-    local MKT_APP_ID=$4
-    local APP_MAPPING=$5
-    local ENCRYPTION_KEY_FILE=$6
+    local MANAGED_APP_NAME=$2
+    local CREDENTIAL_LIST=$3
+    local CREDENTIAL_TYPE=$4
+    local MKT_APP_ID=$5
+    local APP_MAPPING=$6
+    local ENCRYPTION_KEY_FILE=$7
 
     # for each in the list do
     CREDENTIAL_NUMBER=`jq length $CREDENTIAL_LIST`
@@ -714,7 +717,7 @@ function createAndProvisionCredential () {
                 CREDENTIAL_TITLE="$CREDENTIAL_TYPE"_"$i"
 
                 # Search if credential already exist on consumer side
-                local URL="$CENTRAL_URL/apis/management/v1alpha1/credentials?query=title==$CREDENTIAL_TITLE"
+                local URL=$CENTRAL_URL'/apis/management/v1alpha1/credentials?query=title=='$CREDENTIAL_TITLE'+and+metadata.references.name=='$MANAGED_APP_NAME'' 
                 getFromCentral "$URL" "" "$LOGS_DIR/credential-$CREDENTIAL_ID.json"
                 error_exit "Cannot find credentials..." "$LOGS_DIR/credential-$CREDENTIAL_ID.json"
 
@@ -753,7 +756,7 @@ function createAndProvisionCredential () {
                     echo "              Provider provision the credential..." >&2
 
                     # find credential and read it (MKT-credential-title==Credential-title)
-                    URL=$CENTRAL_URL'/apis/management/v1alpha1/credentials?query=title=='$CREDENTIAL_TITLE'' 
+                    URL=$CENTRAL_URL'/apis/management/v1alpha1/credentials?query=title=='$CREDENTIAL_TITLE'+and+metadata.references.name=='$MANAGED_APP_NAME'' 
                     # find the credential associated to the Marketplace credentials
                     getFromCentralWithRetry "$URL" "" "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json"
                     error_exit "Failed to retrieve Cendential $CREDENTIAL_ID" "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json"
@@ -1001,7 +1004,7 @@ migrate_v7_application() {
 
                 # provison the ManageApplication - created only once an accessrequest is added to the application
                 echo "      Provisioning the corresponding Managed application...." 
-                providerProvisionManagedApplication "$MKT_APP_ID" "$V7_APP_ID"
+                MANAGED_APP_NAME=$(providerProvisionManagedApplication "$MKT_APP_ID" "$V7_APP_ID")
                 echo "      Managed Application provisioned." 
 
                 # reading ManagedApplication encryption key
@@ -1014,15 +1017,15 @@ migrate_v7_application() {
 
                 echo "          Creating credentials APIKEYS for application $V7_APP_NAME" >&2
                 getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_APIKEY" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" 
-                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" "$CREDENTIAL_TYPE_APIKEY" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
+                createAndProvisionCredential "$V7_APP_ID" "$MANAGED_APP_NAME" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" "$CREDENTIAL_TYPE_APIKEY" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
 
                 echo "          Creating credentials OAUTH for application $V7_APP_NAME" >&2
                 getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_OAUTH" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" 
-                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" "$CREDENTIAL_TYPE_OAUTH" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
+                createAndProvisionCredential "$V7_APP_ID" "$MANAGED_APP_NAME" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" "$CREDENTIAL_TYPE_OAUTH" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
 
                 echo "          Creating credentials EXTERNAL for application $V7_APP_NAME" >&2
                 getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_EXTERNAL" "$LOGS_DIR/app-$V7_APP_ID-external.json" 
-                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-external.json" "$CREDENTIAL_TYPE_EXTERNAL" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
+                createAndProvisionCredential "$V7_APP_ID" "$MANAGED_APP_NAME" "$LOGS_DIR/app-$V7_APP_ID-external.json" "$CREDENTIAL_TYPE_EXTERNAL" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
 
                 # clean up intermediate files
                 rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apikeys.json
