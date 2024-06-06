@@ -529,10 +529,10 @@ hashingCredentialValue() {
     
     case $CREDENTIAL_TYPE in
         $CREDENTIAL_HASH_2_PARAM)
-            RETURN_VAL=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID "-" $CREDENTIAL_ID_SECRET)
+            RETURN_VAL=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID $CREDENTIAL_ID_SECRET)
             ;;
         $CREDENTIAL_HASH_3_PARAM)
-            RETURN_VAL=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID $CREDENTIAL_ID_SECRET)
+            RETURN_VAL=$($TOOL_DIR/hasher-windows-amd64 $CREDENTIAL_ID "-" $CREDENTIAL_ID_SECRET)
             ;;
     esac
 
