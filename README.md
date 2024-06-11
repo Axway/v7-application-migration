@@ -1,13 +1,13 @@
-# Axway API Manager application migration to Makretplace applications
+# Axway API Manager application migration to Marketplace applications
 
-Tool for migrating Axway API Manager applications into Marketplace applications
+
 This document describes all the steps necessary to migrate your Axway API Manager Applications to the Amplify Enterprise Marketplace.
 The migration from Axway API Manager to the Enterprise Marketplace, consists of the following steps:
 
 1. Create the mapping between Axway API Manager proxies and Marketplace product & plans
 2. Migrate the applications (one or all) using the previous mapping
 
-The script needs to be run in a machine where Axway API MAnager and Amplify Entreprise Marketplace are accessible via their respective APIs.
+The script needs to be run in a machine where Axway API Manager and Amplify Enterprise Marketplace are accessible via their respective APIs.
 
 But before you start with the migration, we recommend you get yourself familiarized with the Amplify Enterprise Marketplace.
 Please take a moment to watch our Enterprise Marketplace intro tutorial at <https://university.axway.com/learn/courses/11665/introduction-to-amplify-enterprise-marketplace>. You can also access our documentation at <https://docs.axway.com/bundle/amplify-central/page/docs/index.html>.
