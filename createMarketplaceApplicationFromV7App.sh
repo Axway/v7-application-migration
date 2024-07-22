@@ -117,9 +117,10 @@ function createMarketplaceApplicationIfNotExisting() {
     # sanitize name for query search...
     local MKT_APP_NAME_FOR_SEARCH=$(sanitizeNameForQuery "$MKT_APP_NAME")      
 
-    # TODO check that it is the correct owning team too
+    # Get app from Makretplace - this query add a * to the name... 
     getFromMarketplace "$MARKETPLACE_URL/api/v1/applications?limit=10&offset=0&search=$MKT_APP_NAME_FOR_SEARCH&sort=-metadata.modifiedAt%2C%2Bname" "" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json"
-    MP_APPLICATION_ID=`cat "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json" | jq -r '.items[0].id'`
+    # so better check that the title and owningTeam match as it is forbidden to have twice the same app now!!
+    MP_APPLICATION_ID=`cat "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json" | jq '[ .items[] | select( .title=="'$MKT_APP_NAME'" and .owner.id=="'$OWNING_TEAM_GUID'" ) ]' | jq -r '.[0].id'`
 
     if [[ $MP_APPLICATION_ID == null ]]
     then
@@ -717,7 +718,7 @@ function createAndProvisionCredential () {
                 CREDENTIAL_TITLE="$CREDENTIAL_TYPE"_"$i"
 
                 # Search if credential already exist on consumer side
-                local URL=$CENTRAL_URL'/apis/management/v1alpha1/credentials?query=title=='$CREDENTIAL_TITLE'+and+metadata.references.name=='$MANAGED_APP_NAME'' 
+                local URL="$CENTRAL_URL/apis/management/v1alpha1/credentials?query=title==$CREDENTIAL_TITLE+and+metadata.references.id==$MKT_APP_ID"
                 getFromCentral "$URL" "" "$LOGS_DIR/credential-$CREDENTIAL_ID.json"
                 error_exit "Cannot find credentials..." "$LOGS_DIR/credential-$CREDENTIAL_ID.json"
 
@@ -756,7 +757,7 @@ function createAndProvisionCredential () {
                     echo "              Provider provision the credential..." >&2
 
                     # find credential and read it (MKT-credential-title==Credential-title)
-                    URL=$CENTRAL_URL'/apis/management/v1alpha1/credentials?query=title=='$CREDENTIAL_TITLE'+and+metadata.references.name=='$MANAGED_APP_NAME'' 
+                    URL=$CENTRAL_URL"/apis/management/v1alpha1/credentials?query=title==$CREDENTIAL_TITLE+and+metadata.references.id==$MKT_APP_ID"
                     # find the credential associated to the Marketplace credentials
                     getFromCentralWithRetry "$URL" "" "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json"
                     error_exit "Failed to retrieve Cendential $CREDENTIAL_ID" "$LOGS_DIR/credential-$CREDENTIAL_ID-created.json"
@@ -834,7 +835,7 @@ function createAndProvisionCredential () {
                 
                 # clean up intermediate files
                 rm -rf $LOGS_DIR/credential-"$CREDENTIAL_ID"*.json
-                rm -rf $LOGS_DIR/crds-"$CREDENTIAL_REQUEST_DEFINIITON".json
+                rm -rf $LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json
             else
                 echo "---<<WARNING>> No credential of type $CREDENTIAL_TYPE found in the mapping." >&2
             fi
