@@ -156,7 +156,7 @@ NOTE for credentialRequestDefinition:
 In order to find the appropriate CredentialRequestDefinition used for credential creation in the Marketplace, you need to:
 
 1. find the api service instance corresponding to a service: `axway central get apisi -q metadata.references.name=={api-service-logical-name} -o json | jq -rc '.[].name'`
-2. find the CredentialRequestDefinition Id from the asset resource that managed this service instance: `axway central get assetresource -q metadata.references.name=={api-service-instance-name-find-in-step-1} | jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id'`
+2. find the CredentialRequestDefinition Id from the asset resource that managed this service instance: `axway central get assetresource -q metadata.references.name=={api-service-instance-name-find-in-step-1} -o json | jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id'`
 
 It is possible that the above command returns more than one result but the result should be identical as the service has a unique security.
 
