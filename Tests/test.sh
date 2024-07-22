@@ -289,6 +289,12 @@ loginFromApi() {
 
 }
 
+testMarketplaceRetrieval() {
+    loginFromApi
+
+    getMarketplaceProductIdFromProductName "Documentation product"
+}
+
 ################# MAIN #################
 #testHashingCredential
 #testSanitizingAppName
@@ -304,5 +310,6 @@ loginFromApi() {
 #testAddingJson ""
 #testAddingJson "[\"idpTokenURL\",\"second\"]"
 #testFindFieldValueFromCRD
-testCryptingCredentialValue
+#testCryptingCredentialValue
 #loginFromApi
+testMarketplaceRetrieval
