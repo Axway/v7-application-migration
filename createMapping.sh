@@ -173,7 +173,7 @@ function findProductInformation() {
     if [[ $noError == 1 ]]
     then
         # clean up intermediate files when no errors occured
-        rm -rf $LOGS_DIR/api-srv-"$V7_API_ID"*.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"*.json
     fi
 
     # compute final result
@@ -259,15 +259,15 @@ function generateMappingFile() {
             mv $MAPPING_DIR/tempFile.json $OUTPUT_FILE
 
             # clean intermediate files
-            rm -rf $MAPPING_DIR/mapping-app.json
-            rm -rf $MAPPING_DIR/mapping-api.json
-            rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apis.json
-            rm -rf $LOGS_DIR/app-api-"$V7_APP_ID"-list.json
+            deleteFile $MAPPING_DIR/mapping-app.json
+            deleteFile $MAPPING_DIR/mapping-api.json
+            deleteFile $LOGS_DIR/app-"$V7_APP_ID"-apis.json
+            deleteFile $LOGS_DIR/app-api-"$V7_APP_ID"-list.json
         fi
 
     done
 
-    rm -rf $TEMP_FILE
+    deleteFile $TEMP_FILE
 
 }
 

@@ -16,6 +16,26 @@ CREDENTIAL_HASH_3_PARAM="3"
 # For debugging purpose
 DEBUG=0
 
+# For keeping files
+KEEP_FILE=0
+
+##########################################################
+# Deleting file - check if the file should be kept or not
+#
+###########################################################
+function deleteFile()
+{
+	if [[ $KEEP_FILE == 0 ]]
+	then
+		rm -rf $1
+	fi
+}
+
+#########################
+# Debug display
+#
+# $1: message
+#########################
 function logDebug()
 {
 	if [[ $DEBUG == 1 ]]
@@ -152,7 +172,7 @@ getAPIM_APIName()
 
     retVal=$(getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json" ".name")
 
-	rm -rf $LOGS_DIR/api-"$V7_API_ID".json
+	deleteFile $LOGS_DIR/api-"$V7_API_ID".json
     
     echo "$retVal"
 }
@@ -314,7 +334,7 @@ function getMarketplaceProductIdFromProductName {
 	cat $TEMP_FILE_NAME | jq -r '[ .items[] | select( .title=="'"$PRODUCT_NAME"'" ) ]' | jq -rc '.[] | {productId: .id, productLatestVersionId: .latestVersion.id}'
 
 	# remove intermediate files
-	rm -rf "$TEMP_FILE_NAME"
+	deleteFile "$TEMP_FILE_NAME"
 
 }
 
@@ -342,7 +362,7 @@ function getMarketplacePlanIdFromPlanName {
 	cat $TEMP_FILE_NAME | jq -r '[ .items[] | select( .title=="'"$PLAN_NAME"'" ) ]' | jq -rc '.[].id'
 
 	# remove intermediate files
-	rm -rf "$TEMP_FILE_NAME"
+	deleteFile "$TEMP_FILE_NAME"
 }
 
 
