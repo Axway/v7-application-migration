@@ -16,6 +16,26 @@ CREDENTIAL_HASH_3_PARAM="3"
 # For debugging purpose
 DEBUG=0
 
+# For keeping files
+KEEP_FILE=0
+
+##########################################################
+# Deleting file - check if the file should be kept or not
+#
+###########################################################
+function deleteFile()
+{
+	if [[ $KEEP_FILE == 0 ]]
+	then
+		rm -rf $1
+	fi
+}
+
+#########################
+# Debug display
+#
+# $1: message
+#########################
 function logDebug()
 {
 	if [[ $DEBUG == 1 ]]
@@ -480,7 +500,7 @@ function getFromCentral() {
 
 	outputFile="$3"
 
-	curl -s -k -L $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN > "$outputFile"
+	curl -s -k -L "$1" -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN > "$outputFile"
 
 	if [[ $2 != "" ]]
 	then
