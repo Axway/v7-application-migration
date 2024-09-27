@@ -59,7 +59,7 @@ function findProductInformation() {
                 APISERV_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].name' )
                 APISERV_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].metadata.id' )
                 ENVIRONMENT_NAME_FOUMD=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].metadata.scope.name' )
-                echo "          We found APIService we are looking for: $APISERV_NAME from $ENVIRONMENT_NAME_FOUMD environment" >&2
+                echo "          We found APIService we are looking for: $APISERV_NAME ($APISERV_ID) from $ENVIRONMENT_NAME_FOUMD environment" >&2
                 
                 # find Asset /!\ use id instead of name
                 getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets?query=metadata.references.id==$APISERV_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
