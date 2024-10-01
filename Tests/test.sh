@@ -50,7 +50,7 @@ testIsPlatformTeamExisting() {
 }
 
 testSanitizingAppName() {
-    V7_APP_NAME="Test with space"
+    V7_APP_NAME="BCBSMNSalesTech"
 
     V7_APP_NAME_TMP=${V7_APP_NAME// /-}
     V7_APP_NAME_SANITIZED=${V7_APP_NAME_TMP//\//-}
@@ -295,9 +295,25 @@ testMarketplaceRetrieval() {
     getMarketplaceProductIdFromProductName "Documentation product"
 }
 
+testAPIisRetired() {
+
+    # not retired - false expected
+    retVal=$(getAPIM_APIRetired "d2604ae4-9ac9-4eee-8ac6-82ae0cd9fbe8")
+    if [[ "$retVal" == "false" ]] then
+        echo "API not retired" >&2
+    fi
+
+    # retired - true expected
+    retVal=$(getAPIM_APIRetired "83858891-a945-4c1b-b49a-cbf3c53b16d9")
+    if [[ "$retVal" == "true" ]] then
+        echo "API is retired" >&2
+    fi
+
+}
+
 ################# MAIN #################
 #testHashingCredential
-#testSanitizingAppName
+testSanitizingAppName
 #testIsPlatformTeamExisting
 #testSanitizing
 #testMergeMapping
@@ -312,4 +328,5 @@ testMarketplaceRetrieval() {
 #testFindFieldValueFromCRD
 #testCryptingCredentialValue
 #loginFromApi
-testMarketplaceRetrieval
+#testMarketplaceRetrieval
+testAPIisRetired

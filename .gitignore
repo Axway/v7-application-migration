@@ -1,5 +1,5 @@
 Logs
-Config/envLBEAN018.properties
+Config/envLBEAN018*.properties
 Config/envPHX12.properties
 Mapping/mappingApi-ProductCB.json
 Mapping/mappingAPP-Product-generated-CB.json

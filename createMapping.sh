@@ -59,15 +59,14 @@ function findProductInformation() {
             else
                 echo "          We found APIService we are looking for" >&2
                 APISERV_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].name' )
+                APISERV_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].metadata.id' )
                 ENVIRONMENT_NAME_FOUMD=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].metadata.scope.name' )
-                
-                # find Asset
-                getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets?query=metadata.references.name==$APISERV_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
+
+                # find Asset based on serviceId
+                getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets?query=metadata.references.id==$APISERV_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
                 error_exit "---<<WARNING>> Unable to retrieve Asset linked to API ($V7_API_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
 
-                # filter the one(s) that match the Environment of the API Service.
-                jq '[.[] | select(.metadata.references[].name == "'"$ENVIRONMENT_NAME_FOUMD"'" and .metadata.references[].kind=="Environment")]' "$LOGS_DIR/api-srv-$V7_API_ID-asset.json" > "$LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json"
-                ASSET_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json"`
+                ASSET_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"`
 
                 if [[ $ASSET_NUMBER == 0 ]]
                 then
@@ -79,7 +78,8 @@ function findProductInformation() {
                     else
                         echo "          We found 1 asset that manage API ($V7_API_NAME)..." >&2
                         # Read the asset name
-                        ASSET_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset-filtered.json" | jq -rc '.[].name')
+                        ASSET_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset.json" | jq -rc '.[].name')
+                        ASSET_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset.json" | jq -rc '.[].metadata.id')
 
                         # read the asset resource to find the CRD_ID
                         # find API Service instance
@@ -103,7 +103,7 @@ function findProductInformation() {
                         fi
 
                         # find product
-                        getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/products?query=metadata.references.name==$ASSET_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
+                        getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/products?query=metadata.references.id==$ASSET_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
                         error_exit "---<<WARNING>> Unable to retrieve Product linked to Asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
 
                         PRODUCT_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product.json"`
@@ -234,23 +234,31 @@ function generateMappingFile() {
                 V7_API_ID=$(echo $appApiLine | jq -rc '.apiId')
                 V7_API_NAME=$(getAPIM_APIName "$V7_API_ID")
 
-                # search product Information
-                PRODUCT_INFORMATION=$(findProductInformation "$V7_API_NAME" "$V7_API_ID")
+                # check that the API is not retired
+                V7_API_RETIRED=$(getAPIM_APIRetired "$V7_API_ID")
 
-                # extract values
-                PRODUCT_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.productName')
-                PRODUCT_PLAN_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.productPlanName')
-                EMVIRONMENT_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.apiEnvironmentName')
-                CRD_ID=$(echo $PRODUCT_INFORMATION | jq -rc '.credentialRequestDefinition')
-            
-                # create the mapping-api piece
-                echo "      create mapping-API for API ($V7_API_NAME)" 
-                jq -n -f ./jq/mapping-template-api.jq --arg apiName "$V7_API_NAME" --arg productName "$PRODUCT_NAME" --arg productPlanName "$PRODUCT_PLAN_NAME" --arg environment "$EMVIRONMENT_NAME" --arg credentialRequestDefinitionId "$CRD_ID" > $MAPPING_DIR/mapping-api.json
+                if [[ "$V7_API_RETIRED" == "false" ]]; then
+                    # search product Information
+                    PRODUCT_INFORMATION=$(findProductInformation "$V7_API_NAME" "$V7_API_ID")
 
-                # add it to the Mapping array
-                echo "      add current into application mapping array"
-                jq --slurpfile file2 $MAPPING_DIR/mapping-api.json '(.Mapping += $file2)' $MAPPING_DIR/mapping-app.json > $MAPPING_DIR/mapping-app-temp.json
-                mv $MAPPING_DIR/mapping-app-temp.json $MAPPING_DIR/mapping-app.json
+                    # extract values
+                    PRODUCT_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.productName')
+                    PRODUCT_PLAN_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.productPlanName')
+                    EMVIRONMENT_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.apiEnvironmentName')
+                    CRD_ID=$(echo $PRODUCT_INFORMATION | jq -rc '.credentialRequestDefinition')
+                
+                    # create the mapping-api piece
+                    echo "      create mapping-API for API ($V7_API_NAME)" 
+                    jq -n -f ./jq/mapping-template-api.jq --arg apiName "$V7_API_NAME" --arg productName "$PRODUCT_NAME" --arg productPlanName "$PRODUCT_PLAN_NAME" --arg environment "$EMVIRONMENT_NAME" --arg credentialRequestDefinitionId "$CRD_ID" > $MAPPING_DIR/mapping-api.json
+
+                    # add it to the Mapping array
+                    echo "      add current into application mapping array"
+                    jq --slurpfile file2 $MAPPING_DIR/mapping-api.json '(.Mapping += $file2)' $MAPPING_DIR/mapping-app.json > $MAPPING_DIR/mapping-app-temp.json
+                    mv $MAPPING_DIR/mapping-app-temp.json $MAPPING_DIR/mapping-app.json
+                else
+                    echo "---<<WARNING>> API - $V7_API_NAME with id $V7_API_ID is retired - Ignoring it for the mapping."
+
+                fi
             done
 
             # add current Application mapping into the target file
