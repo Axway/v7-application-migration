@@ -50,7 +50,7 @@ testIsPlatformTeamExisting() {
 }
 
 testSanitizingAppName() {
-    V7_APP_NAME="BCBSMNSalesTech"
+    V7_APP_NAME="Test with space"
 
     V7_APP_NAME_TMP=${V7_APP_NAME// /-}
     V7_APP_NAME_SANITIZED=${V7_APP_NAME_TMP//\//-}
@@ -313,7 +313,7 @@ testAPIisRetired() {
 
 ################# MAIN #################
 #testHashingCredential
-testSanitizingAppName
+#testSanitizingAppName
 #testIsPlatformTeamExisting
 #testSanitizing
 #testMergeMapping
