@@ -162,9 +162,9 @@ getAPIM_OrganizationName()
 }
 
 #############################################
-# Get organization Name based on the ORG_ID
+# Get API Name based on the API_ID
 # 
-# Input: ORG_ID
+# Input: API_ID
 #############################################
 getAPIM_APIName()
 {
@@ -177,6 +177,21 @@ getAPIM_APIName()
     echo "$retVal"
 }
 
+#############################################
+# Get retired information based on the API_ID
+# 
+# Input: API_ID
+#############################################
+getAPIM_APIRetired()
+{
+    V7_API_ID=$1
+
+    retVal=$(getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json" ".retired")
+
+	rm -rf $LOGS_DIR/api-"$V7_API_ID".json
+    
+    echo "$retVal"
+}
 
 ################################################
 # Retrieve specific credential for a given APP 
