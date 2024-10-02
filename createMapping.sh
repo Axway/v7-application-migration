@@ -25,7 +25,6 @@ function findProductInformation() {
 
     local V7_API_NAME="$1"
     local V7_API_ID="$2"
-    local OUTPUT_FILE="$3"
     local PRODUCT_NAME_FOUND=$TBD_VALUE
     local PRODUCT_PLAN_NAME_FOUND=$TBD_VALUE
     local ENVIRONMENT_NAME_FOUMD=$TBD_VALUE
@@ -57,12 +56,12 @@ function findProductInformation() {
             then
                 echo "---<<WARNING>> API ($V7_API_NAME) has been found multiple times. Please remove any duplicate prior to proceed." >&2
             else
-                echo "          We found APIService we are looking for" >&2
                 APISERV_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].name' )
                 APISERV_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].metadata.id' )
                 ENVIRONMENT_NAME_FOUMD=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-filtered.json" | jq -rc '.[].metadata.scope.name' )
-
-                # find Asset based on serviceId
+                echo "          We found APIService we are looking for: $APISERV_NAME ($APISERV_ID) from $ENVIRONMENT_NAME_FOUMD environment" >&2
+                
+                # find Asset /!\ use id instead of name
                 getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets?query=metadata.references.id==$APISERV_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
                 error_exit "---<<WARNING>> Unable to retrieve Asset linked to API ($V7_API_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset.json"
 
@@ -76,86 +75,96 @@ function findProductInformation() {
                     then
                         echo "---<<WARNING>> API ($V7_API_NAME) is embedded in multiple assets. You will need to manually update the mapping file and select appropriate Product and Plan" >&2
                     else
-                        echo "          We found 1 asset that manage API ($V7_API_NAME)..." >&2
                         # Read the asset name
                         ASSET_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset.json" | jq -rc '.[].name')
                         ASSET_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset.json" | jq -rc '.[].metadata.id')
+                        echo "          We found the asset ($ASSET_NAME : $ASSET_ID) that manage API ($V7_API_NAME)..." >&2
 
                         # read the asset resource to find the CRD_ID
                         # find API Service instance
-                        getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ENVIRONMENT_NAME_FOUMD/apiserviceinstances?query=metadata.references.name==$APISERV_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
+                        getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ENVIRONMENT_NAME_FOUMD/apiserviceinstances?query=metadata.references.id==$APISERV_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
                         error_exit "---<<WARNING>> Unable to retrieve API Service Instance for ($APISERV_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"
 
-                        APISERV_INSTANCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-instance.json" | jq -rc '.[].name')
-
-                        # find AssetResources having the APIServiceInstance
-                        getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets/$ASSET_NAME/assetresources?query=metadata.references.name==$APISERV_INSTANCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
-                        error_exit "---<<WARNING>> Unable to retrieve Asset resources for asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
-
-                        ASSET_RESOURCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json" | jq -rc '.[].name')
-                        ASSET_RESOURCE_CRD_ID=$(jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id' "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json")
-
-                        if [[ $ASSET_RESOURCE_CRD_ID == '' ]]
+                        #/!\ several instance possible...
+                        APISERV_INSTANCE_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-instance.json"`
+                        if [[ $APISERV_INSTANCE_NUMBER > 1 ]]
                         then
-                            echo "Assert resource is null" >&2
+                            echo "---<<WARNING>> API ($V7_API_NAME) has several API Service Instance..." >&2
                         else
-                            CREDENTIAL_REQUEST_DEFINITION_ID_FOUND=$ASSET_RESOURCE_CRD_ID
-                        fi
+
+                            APISERV_INSTANCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-instance.json" | jq -rc '.[].name')
+                            APISERV_INSTANCE_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-instance.json" | jq -rc '.[].metadata.id')
+
+                            # find AssetResources having the APIServiceInstance
+                            getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/assets/$ASSET_NAME/assetresources?query=metadata.references.id==$APISERV_INSTANCE_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
+                            error_exit "---<<WARNING>> Unable to retrieve Asset resources for asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json"
+
+                            ASSET_RESOURCE_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json" | jq -rc '.[].name')
+                            ASSET_RESOURCE_CRD_ID=$(jq -rc '.[].metadata.references[] | select(.kind == "CredentialRequestDefinition").id' "$LOGS_DIR/api-srv-$V7_API_ID-asset-resources.json")
+
+                            if [[ $ASSET_RESOURCE_CRD_ID == '' ]]
+                            then
+                                echo "Assert credential request definition not found" >&2
+                            else
+                                CREDENTIAL_REQUEST_DEFINITION_ID_FOUND=$ASSET_RESOURCE_CRD_ID
+                                echo "          Assert credential request definition found" >&2
+                            fi
 
                         # find product
                         getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/products?query=metadata.references.id==$ASSET_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
                         error_exit "---<<WARNING>> Unable to retrieve Product linked to Asset ($ASSET_NAME)" "$LOGS_DIR/api-srv-$V7_API_ID-product.json"
 
-                        PRODUCT_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product.json"`
+                            PRODUCT_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product.json"`
 
-                        if [[ $PRODUCT_NUMBER == 0 ]]
-                        then
-                                echo "---<<WARNING>> API ($V7_API_NAME) is part of an asset ($ASSET_NAME) that is not embed in any product." >&2
-                        else
-                            if [[ $PRODUCT_NUMBER > 1 ]]
+                            if [[ $PRODUCT_NUMBER == 0 ]]
                             then
-                                    echo "---<<WARNING>> API ($V7_API_NAME) is part of an asset ($ASSET_NAME) that is embed in multiple products." >&2
+                                    echo "---<<WARNING>> API ($V7_API_NAME) is part of an asset ($ASSET_NAME) that is not embed in any product." >&2
                             else
-                                PRODUCT_NAME_FOUND=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product.json" | jq -rc '.[].title')
-                                PRODUCT_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product.json" | jq -rc '.[].metadata.id')
-                                echo "          Found the product - $PRODUCT_NAME_FOUND" >&2
-
-                                # Now find the plan
-                                getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/productplans?query=metadata.references.id==$PRODUCT_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"
-                                error_exit "---<<WARNING>> Unable to retrieve Product plan linked to Product ($PRODUCT_NAME_FOUND)" "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"
-
-                                PRODUCT_PLAN_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"`
-
-                                if [[ $PRODUCT_PLAN_NUMBER == 0 ]]
+                                if [[ $PRODUCT_NUMBER > 1 ]]
                                 then
-                                    echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUND) that has no plan. You need to create a plan to perform the migration successfully." >&2
-                                else 
-                                    if [[ $PRODUCT_PLAN_NUMBER> 1 ]]
+                                        echo "---<<WARNING>> API ($V7_API_NAME) is part of an asset ($ASSET_NAME) that is embed in multiple products." >&2
+                                else
+                                    PRODUCT_NAME_FOUND=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product.json" | jq -rc '.[].title')
+                                    PRODUCT_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product.json" | jq -rc '.[].metadata.id')
+                                    echo "          Found the product - $PRODUCT_NAME_FOUND" >&2
+
+                                    # Now find the plan
+                                    getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/productplans?query=metadata.references.id==$PRODUCT_ID" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"
+                                    error_exit "---<<WARNING>> Unable to retrieve Product plan linked to Product ($PRODUCT_NAME_FOUND)" "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"
+
+                                    PRODUCT_PLAN_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json"`
+
+                                    if [[ $PRODUCT_PLAN_NUMBER == 0 ]]
                                     then
-                                        echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUND) that have multiple plans. You need to choose which one to apply" >&2
-                                    else
-                                        # only 1 plan found
-                                        PRODUCT_PLAN_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].metadata.id')
-                                        PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].name')
-
-                                        # find the Quota for the AssetResources.
-                                        getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/quotas?query=metadata.references.name==$ASSET_RESOURCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
-                                        error_exit "---<<WARNING>> Unable to retrieve product ($PRODUCT_NAME_FOUND) quotas" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
-
-                                        # filter with plan name
-                                        jq '[.[] | select(.metadata.scope.name == "'"$PRODUCT_PLAN_NAME"'")]' "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json" > "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"
-
-                                        QUOTA_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"`
-
-                                        if [[ $QUOTA_NUMBER != 0 ]]
-                                        then 
-                                            # found a plan that handle the current API
-                                            PRODUCT_PLAN_NAME_FOUND=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].title')
-
-                                            # allow to clean up intermediate files
-                                            noError=1
+                                        echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUND) that has no plan. You need to create a plan to perform the migration successfully." >&2
+                                    else 
+                                        if [[ $PRODUCT_PLAN_NUMBER> 1 ]]
+                                        then
+                                            echo "---<<WARNING>> API ($V7_API_NAME) is part of a product ($PRODUCT_NAME_FOUND) that have multiple plans. You need to choose which one to apply" >&2
                                         else
-                                            echo "---<<WARNING>> API ($V7_API_NAME) is not part of any plan quota of the product ($PRODUCT_NAME_FOUND}. You need to create a plan for this service." >&2
+                                            # only 1 plan found
+                                            PRODUCT_PLAN_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].metadata.id')
+                                            PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].name')
+
+                                            # find the Quota for the AssetResources.
+                                            getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/quotas?query=metadata.references.name==$ASSET_RESOURCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
+                                            error_exit "---<<WARNING>> Unable to retrieve product ($PRODUCT_NAME_FOUND) quotas" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
+
+                                            # filter with plan name
+                                            jq '[.[] | select(.metadata.scope.name == "'"$PRODUCT_PLAN_NAME"'")]' "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json" > "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"
+
+                                            QUOTA_NUMBER=`jq length "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-filtered.json"`
+
+                                            if [[ $QUOTA_NUMBER != 0 ]]
+                                            then 
+                                                # found a plan that handle the current API
+                                                PRODUCT_PLAN_NAME_FOUND=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].title')
+
+                                                # allow to clean up intermediate files
+                                                noError=1
+                                            else
+                                                echo "---<<WARNING>> API ($V7_API_NAME) is not part of any plan quota of the product ($PRODUCT_NAME_FOUND}. You need to create a plan for this service." >&2
+                                            fi
                                         fi
                                     fi
                                 fi
@@ -173,7 +182,7 @@ function findProductInformation() {
     if [[ $noError == 1 ]]
     then
         # clean up intermediate files when no errors occured
-        rm -rf $LOGS_DIR/api-srv-"$V7_API_ID"*.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"*.json
     fi
 
     # compute final result
@@ -267,15 +276,15 @@ function generateMappingFile() {
             mv $MAPPING_DIR/tempFile.json $OUTPUT_FILE
 
             # clean intermediate files
-            rm -rf $MAPPING_DIR/mapping-app.json
-            rm -rf $MAPPING_DIR/mapping-api.json
-            rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apis.json
-            rm -rf $LOGS_DIR/app-api-"$V7_APP_ID"-list.json
+            deleteFile $MAPPING_DIR/mapping-app.json
+            deleteFile $MAPPING_DIR/mapping-api.json
+            deleteFile $LOGS_DIR/app-"$V7_APP_ID"-apis.json
+            deleteFile $LOGS_DIR/app-api-"$V7_APP_ID"-list.json
         fi
 
     done
 
-    rm -rf $TEMP_FILE
+    deleteFile $TEMP_FILE
 
 }
 

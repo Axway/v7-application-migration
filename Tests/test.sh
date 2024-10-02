@@ -235,8 +235,8 @@ testAddingJson() {
 
         cat $LOGS/output.json
 
-        rm -rf "$OUTPUT_FILE"
-        rm -rf $LOGS/output.json
+        deleteFile "$OUTPUT_FILE"
+        deleteFile $LOGS/output.json
 
     fi
 }
