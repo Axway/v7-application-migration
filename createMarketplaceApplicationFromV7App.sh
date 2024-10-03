@@ -110,6 +110,7 @@ function createMarketplaceApplicationIfNotExisting() {
 
     local MKT_APP_NAME="$1"
     local OWNING_TEAM_GUID="$2"
+    local NEED_CREATE_APP=0
 
     echo "  is $MKT_APP_NAME exist on the Marketplace?" >&2
     # sanitize name for file name...
@@ -119,27 +120,39 @@ function createMarketplaceApplicationIfNotExisting() {
 
     # Get app from Makretplace - this query add a * to the name... 
     getFromMarketplace "$MARKETPLACE_URL/api/v1/applications?limit=10&offset=0&search=$MKT_APP_NAME_FOR_SEARCH&sort=-metadata.modifiedAt%2C%2Bname" "" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json"
-    # so better check that the title and owningTeam match as it is forbidden to have twice the same app now!!
-    MP_APPLICATION_ID=`cat "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json" | jq '[ .items[] | select( .title=="'$MKT_APP_NAME'" and .owner.id=="'$OWNING_TEAM_GUID'" ) ]' | jq -r '.[0].id'`
 
-    if [[ $MP_APPLICATION_ID == null ]]
-    then
+    MKT_APP_NUMBER=`cat "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json" | jq -rc '.totalCount'`
+    
+    if [[ $MKT_APP_NUMBER != 0 ]] then
+        
+        echo "      We found application, checking it belongs to the correct team" >&2
+        # Check that the title and owningTeam match as it is forbidden to have twice the same app now!!
+        MP_APPLICATION_ID=`cat "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json" | jq '[ .items[] | select( .title=="'"$MKT_APP_NAME"'" and .owner.id=="'$OWNING_TEAM_GUID'" ) ]' | jq -r '.[0].id'`
+
+        if [[ $MP_APPLICATION_ID == null ]]
+        then
+            NEED_CREATE_APP=1
+        fi
+    else
+        NEED_CREATE_APP=1
+    fi
+
+    if [[ $NEED_CREATE_APP == 1 ]] then
         # TODO = Application icon
         #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/b876ab64-60b7-4393-8cc9-ffa56128d583/image
         #getFromApiManager
 
-        # we can create it
         echo "      No it does not, creating application $MKT_APP_NAME..." >&2
         jq -n -f ./jq/mkt-application.jq --arg applicationTitle "$MKT_APP_NAME" --arg teamId $OWNING_TEAM_GUID > "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED.json"
         postToMarketplace "$MARKETPLACE_URL/api/v1/applications" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED.json" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-created.json"
         echo "      Application $MKT_APP_NAME created on Marketplace" >&2
         MP_APPLICATION_ID=`cat "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-created.json" | jq -r '.id'`
     else
-        echo "      Application already exist in Marketplace." >&2
+            echo "      Application $MKT_APP_NAME - owned by correct team is already existing in Marketplace." >&2
     fi
 
     # clean up temporary files
-    rm -rf $LOGS_DIR/mkt-application-"$MKT_APP_NAME_SANITIZED"*.json
+    deleteFile -rf $LOGS_DIR/mkt-application-"$MKT_APP_NAME_SANITIZED"*.json
 
     echo "$MP_APPLICATION_ID"
 }
