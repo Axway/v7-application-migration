@@ -8,6 +8,7 @@
                 "productName": "MARKETPLACE PRODUCT NAME",
                 "planName": "MARKETPLACE PRODUCT PLAN NAME",
                 "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
+                "apiServiceInstanceId": "API SERVICE INSTANCE ID",
                 "credentialRequestDefinitionId": "CRD ID for MKT - coming from AssetResources.CRD"
             },
             {
@@ -15,6 +16,7 @@
                 "productName": "",
                 "planName": "MARKETPLACE PRODUCT PLAN NAME",
                 "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
+                "apiServiceInstanceId": "API SERVICE INSTANCE ID",
                 "credentialRequestDefinitionId": "CRD ID for MKT - coming from AssetResources.CRD"
             }
         ]
@@ -28,6 +30,7 @@
                 "productName": "MARKETPLACE PRODUCT NAME",
                 "planName": "MARKETPLACE PRODUCT PLAN NAME",
                 "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
+                "apiServiceInstanceId": "API SERVICE INSTANCE ID",
                 "credentialRequestDefinitionId": "CRD ID for MKT - coming from AssetResources.CRD"
             }
         ]
