@@ -256,16 +256,16 @@ function createMarketplaceSubscriptionIfNotExisting() {
     if [[ $CAN_CREATE_SUBSCRIPTION == 1 ]] 
     then
         echo "              No subscription found, creating the new one..." >&2
-        jq -n -f ./jq/mkt-subscription.jq --arg subscriptionTitle "$SUBSCRIPTION_TITLE" --arg teamId $TEAM_GUID --arg planId $MP_PRODUCT_PLAN_ID --arg productId $MP_PRODUCT_ID > "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE.json"
-        postToMarketplace "$MARKETPLACE_URL/api/v1/subscriptions" "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE.json" "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json"
-        error_post "Problem creating subscription on Marketplace." "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json"
+        jq -n -f ./jq/mkt-subscription.jq --arg subscriptionTitle "$SUBSCRIPTION_TITLE" --arg teamId $TEAM_GUID --arg planId $MP_PRODUCT_PLAN_ID --arg productId $MP_PRODUCT_ID > "$LOGS_DIR/nkt-subscription-$SANITIZE_PRODUCT_NAME.json"
+        postToMarketplace "$MARKETPLACE_URL/api/v1/subscriptions" "$LOGS_DIR/nkt-subscription-$SANITIZE_PRODUCT_NAME.json" "$LOGS_DIR/nkt-subscription-$SANITIZE_PRODUCT_NAME-created.json"
+        error_post "Problem creating subscription on Marketplace." "$LOGS_DIR/nkt-subscription-$SANITIZE_PRODUCT_NAME-created.json"
         echo "              Subscription created." >&2
 
-        MP_SUBSCRIPTION_ID=$(cat "$LOGS_DIR/nkt-subscription-$PRODUCT_NAME_WITHOUT_SPACE-created.json" | jq -rc '.id')
+        MP_SUBSCRIPTION_ID=$(cat "$LOGS_DIR/nkt-subscription-$SANITIZE_PRODUCT_NAME-created.json" | jq -rc '.id')
     fi
 
     # clean up intermediate files
-    rm -rf $LOGS_DIR/nkt-subscription-"$PRODUCT_NAME_WITHOUT_SPACE"*.json
+    rm -rf $LOGS_DIR/nkt-subscription-"$SANITIZE_PRODUCT_NAME"*.json
     rm -rf $LOGS_DIR/mkt-subscription-product-*.json
 
     echo "$MP_SUBSCRIPTION_ID"                        
@@ -285,7 +285,7 @@ function createMarketplaceSubscriptionIfNotExisting() {
 # Output: ACCESS_REQUEST_ID
 #####################################################################
 function createMarketplaceAccessRequestIfNotExisting() {
-
+    
     local V7_APP_NAME=$1
     local V7_API_NAME=$2
     local PRODUCT_NAME=$3
@@ -293,6 +293,7 @@ function createMarketplaceAccessRequestIfNotExisting() {
     local MP_PRODUCT_VERSION_ID=$5
     local MP_SUBSCRIPTION_ID=$6
     local MP_APPLICATION_ID=$7
+    local API_SERVICE_INSTANCE_ID=$8
 
     local CREATE_ACCESS_REQUEST=1
 
@@ -303,10 +304,12 @@ function createMarketplaceAccessRequestIfNotExisting() {
     echo "              Finding assetResource identifier..." >&2
     getFromMarketplace "$MARKETPLACE_URL/api/v1/products/$MP_PRODUCT_ID/versions/$MP_PRODUCT_VERSION_ID/assetresources?limit=10&offset=0&search=" "" "$LOG_FILE"
 
-    if [[ `jq length $LOG_FILE` != "" ]]
+    MKT_PDT_RESOURCE_NUMBER=`cat "$LOG_FILE" | jq -rc '.totalCount'`
+
+    if [[ $MKT_PDT_RESOURCE_NUMBER != 0 ]]
     then
         # something is found - why take the first one?
-        MP_ASSETRESOURCE_ID=`cat "$LOG_FILE" | jq '[ .items[] | select( .title=="'"$V7_API_NAME"'" ) ]' | jq -r ' .[0].id'`
+        MP_ASSETRESOURCE_ID=`cat "$LOG_FILE" | jq '[ .items[] | select( .resourceId=="'"$API_SERVICE_INSTANCE_ID"'" ) ]' | jq -r ' .[0].id'`
 
         if [[ $MP_ASSETRESOURCE_ID != null ]]
         then
@@ -969,6 +972,7 @@ migrate_v7_application() {
                     echo "              Searching corresponding productID and planID for creating the subscription..." >&2
                     PRODUCT_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.productName')
                     PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.planName')
+                    APISERVICE_INSTANCE_ID=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.apiServiceInstanceId')
 
                     if [[ $PRODUCT_NAME != $TBD_VALUE && $PRODUCT_PLAN_NAME != $TBD_VALUE ]] 
                     then
@@ -997,7 +1001,7 @@ migrate_v7_application() {
 
                         ## Access Request Management ##
                         echo "          Creating Access request..." >&2
-                        MKT_ACCESS_REQUEST_ID=$(createMarketplaceAccessRequestIfNotExisting "$V7_APP_NAME" "$V7_API_NAME" "$PRODUCT_NAME" "$MP_PRODUCT_ID" "$MP_PRODUCT_LATEST_VERSION_ID" "$MKT_SUBSCRIPTION_ID" "$MKT_APP_ID")
+                        MKT_ACCESS_REQUEST_ID=$(createMarketplaceAccessRequestIfNotExisting "$V7_APP_NAME" "$V7_API_NAME" "$PRODUCT_NAME" "$MP_PRODUCT_ID" "$MP_PRODUCT_LATEST_VERSION_ID" "$MKT_SUBSCRIPTION_ID" "$MKT_APP_ID" "$APISERVICE_INSTANCE_ID")
                         echo "          Access request created." >&2
 
                         echo "          Approve Access request..." >&2

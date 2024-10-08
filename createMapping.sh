@@ -29,6 +29,7 @@ function findProductInformation() {
     local PRODUCT_PLAN_NAME_FOUND=$TBD_VALUE
     local ENVIRONMENT_NAME_FOUMD=$TBD_VALUE
     local CREDENTIAL_REQUEST_DEFINITION_ID_FOUND="$TBD_VALUE"
+    local APISERV_INSTANCE_ID="$TBD_VALUE"
     local noError=0
 
     echo "      Looking for product for API ($V7_API_NAME - $V7_API_ID)" >&2 
@@ -146,6 +147,8 @@ function findProductInformation() {
                                             PRODUCT_PLAN_ID=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].metadata.id')
                                             PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/api-srv-$V7_API_ID-product-plans.json" | jq -rc '.[].name')
 
+                                            #TODO check if plan is activated?
+
                                             # find the Quota for the AssetResources.
                                             getFromCentral "$CENTRAL_URL/apis/catalog/v1alpha1/quotas?query=metadata.references.name==$ASSET_RESOURCE_NAME" "" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
                                             error_exit "---<<WARNING>> Unable to retrieve product ($PRODUCT_NAME_FOUND) quotas" "$LOGS_DIR/api-srv-$V7_API_ID-product-plan-quota.json"
@@ -186,7 +189,7 @@ function findProductInformation() {
     fi
 
     # compute final result
-    echo `jq -n -f ./jq/mapping-product-info.jq --arg productName "$PRODUCT_NAME_FOUND" --arg productPlanName "$PRODUCT_PLAN_NAME_FOUND" --arg environmentName "$ENVIRONMENT_NAME_FOUMD" --arg credentialRequestDefinition "$CREDENTIAL_REQUEST_DEFINITION_ID_FOUND"`
+    echo `jq -n -f ./jq/mapping-product-info.jq --arg productName "$PRODUCT_NAME_FOUND" --arg productPlanName "$PRODUCT_PLAN_NAME_FOUND" --arg environmentName "$ENVIRONMENT_NAME_FOUMD" --arg apiServiceInstanceId "$APISERV_INSTANCE_ID" --arg credentialRequestDefinition "$CREDENTIAL_REQUEST_DEFINITION_ID_FOUND"`
 }
 
 #####################################
@@ -255,10 +258,11 @@ function generateMappingFile() {
                     PRODUCT_PLAN_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.productPlanName')
                     EMVIRONMENT_NAME=$(echo $PRODUCT_INFORMATION | jq -rc '.apiEnvironmentName')
                     CRD_ID=$(echo $PRODUCT_INFORMATION | jq -rc '.credentialRequestDefinition')
+                    APISERVICE_INSTANCE_ID=$(echo $PRODUCT_INFORMATION | jq -rc '.apiServiceInstanceId')
                 
                     # create the mapping-api piece
                     echo "      create mapping-API for API ($V7_API_NAME)" 
-                    jq -n -f ./jq/mapping-template-api.jq --arg apiName "$V7_API_NAME" --arg productName "$PRODUCT_NAME" --arg productPlanName "$PRODUCT_PLAN_NAME" --arg environment "$EMVIRONMENT_NAME" --arg credentialRequestDefinitionId "$CRD_ID" > $MAPPING_DIR/mapping-api.json
+                    jq -n -f ./jq/mapping-template-api.jq --arg apiName "$V7_API_NAME" --arg productName "$PRODUCT_NAME" --arg productPlanName "$PRODUCT_PLAN_NAME" --arg environment "$EMVIRONMENT_NAME" --arg apiServiceInstanceId "$APISERVICE_INSTANCE_ID" --arg credentialRequestDefinitionId "$CRD_ID" > $MAPPING_DIR/mapping-api.json
 
                     # add it to the Mapping array
                     echo "      add current into application mapping array"

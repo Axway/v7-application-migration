@@ -113,6 +113,7 @@ For each application, we have the owning team (could be empty and the migration 
             "productName": "MARKETPLACE PRODUCT NAME",
             "planName": "MARKETPLACE PRODUCT PLAN NAME",
             "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
+            "apiServiceInstanceId": "API SERVICE INSTANCE ID",
             "credentialRequestDefinitionId": "CRD ID for MKT - coming from AssetResources.CRD"
         },
         {
@@ -120,6 +121,7 @@ For each application, we have the owning team (could be empty and the migration 
             "productName": "",
             "planName": "MARKETPLACE PRODUCT PLAN NAME",
             "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
+            "apiServiceInstanceId": "API SERVICE INSTANCE ID",
             "credentialRequestDefinitionId": "CRD ID for MKT - coming from AssetResources.CRD"
         }
     ],
@@ -149,7 +151,7 @@ During the mapping creation, it is possible to receive **Warning** message:
 9. API (`V7_API_NAME`) is part of a product (`PRODUCT_NAME_FOUND`) that have multiple plans.
 10. API (`V7_API_NAME`) is not part of any plan quota of the product (`PRODUCT_NAME_FOUND`).
 
-For all these warning, `TBD` will be added in the mapping file under `productName` or `planName` or `environment` or `credentialRequestDefinitionId` variable. If you choose to ignore those warning, the migration for the specific application will not be complete.
+For all these warning, `TBD` will be added in the mapping file under `productName` or `planName` or `environment` or `apiServiceInstanceId` or `credentialRequestDefinitionId` variable. If you choose to ignore those warning, the migration for the specific application will not be complete.
 
 NOTE for credentialRequestDefinition:
 
