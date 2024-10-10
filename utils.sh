@@ -87,29 +87,29 @@ function error_post {
 ############################
 function loginToPlatform {
 
-	echo "Connecting to Amplify platform with Axway CLI"
+	echo "Connecting to Amplify platform with Axway CLI" >&2
 	if [[ $CLIENT_ID == "" ]]
 	then
-		echo "No client id supplied => login via browser"
+		echo "No client id supplied => login via browser" >&2
 		axway auth login
 	else
-		echo "Service account supplied => login headless"
+		echo "Service account supplied => login headless" >&2
 		axway auth login --client-id $CLIENT_ID --secret-file "$CLIENT_SECRET"
 	fi
 
     error_exit "Problem with authentication to your account. Please, verify your credentials"
 
 	# retrieve the organizationId of the connected user
-	echo ""
-	echo "Retrieving the organization ID / Token and Region..."
+	echo "" >&2
+	echo "Retrieving the organization ID / Token and Region..." >&2
 	PLATFORM_ORGID=$(axway auth list --json | jq -r '.[0] .org .id')
 	PLATFORM_TOKEN=$(axway auth list --json | jq -r '.[0] .auth .tokens .access_token ')
 	ORGANIZATION_REGION=$(axway auth list --json | jq -r '.[0] .org .region ')
 	USER_GUID=$(axway auth list --json | jq -r '.[0] .user .guid ')
-	echo " and set CENTRAL_URL to " 
+	echo " and set CENTRAL_URL to " >&2
 	CENTRAL_URL=$(getCentralURL)
-	echo "$CENTRAL_URL"
-	echo "OK we are good."
+	echo "$CENTRAL_URL" >&2
+	echo "OK we are good." >&2
 }
 
 

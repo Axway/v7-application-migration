@@ -198,10 +198,10 @@ function findProductInformation() {
 function generateMappingFile() {
 
     # create the file
-    echo "Initializing Mapping file ($OUTPUT_FILE)"
+    echo "Initializing Mapping file ($OUTPUT_FILE)" >&2
     echo "[]" > $OUTPUT_FILE
 
-    echo "-$APP_NAME_TO_MIGRATE-"
+    echo "-$APP_NAME_TO_MIGRATE-" >&2
     # Should we migrate all or just one?
     if [[ $APP_NAME_TO_MIGRATE == '' ]]
     then
@@ -219,7 +219,7 @@ function generateMappingFile() {
     # loop over the result and keep interesting data (name / description / org)
     cat $TEMP_FILE | jq -rc ".[] | {appId: .id, orgId: .organizationId, appName: .name}" | while IFS= read -r line ; do
 
-        #echo "line=$line"
+        #echo "line=$line" >&2
         # read values
         V7_APP_ID=$(echo $line | jq -r '.appId')
         V7_ORG_ID=$(echo $line | jq -r '.orgId')
@@ -234,7 +234,7 @@ function generateMappingFile() {
 
             # create the mapping header (APP / owner)
             # Add  
-            echo "  Create Application ($V7_APP_NAME) mapping section..."
+            echo "  Create Application ($V7_APP_NAME) mapping section..." >&2
             jq -n -f ./jq/mapping-template.jq --arg applicationName "$V7_APP_NAME" --arg owningTeam "$v7_ORG_NAME" > $MAPPING_DIR/mapping-app.json
 
             # for each application, find the API.
@@ -261,21 +261,21 @@ function generateMappingFile() {
                     APISERVICE_INSTANCE_ID=$(echo $PRODUCT_INFORMATION | jq -rc '.apiServiceInstanceId')
                 
                     # create the mapping-api piece
-                    echo "      create mapping-API for API ($V7_API_NAME)" 
+                    echo "      create mapping-API for API ($V7_API_NAME)" >&2 
                     jq -n -f ./jq/mapping-template-api.jq --arg apiName "$V7_API_NAME" --arg productName "$PRODUCT_NAME" --arg productPlanName "$PRODUCT_PLAN_NAME" --arg environment "$EMVIRONMENT_NAME" --arg apiServiceInstanceId "$APISERVICE_INSTANCE_ID" --arg credentialRequestDefinitionId "$CRD_ID" > $MAPPING_DIR/mapping-api.json
 
                     # add it to the Mapping array
-                    echo "      add current into application mapping array"
+                    echo "      add current into application mapping array" >&2
                     jq --slurpfile file2 $MAPPING_DIR/mapping-api.json '(.Mapping += $file2)' $MAPPING_DIR/mapping-app.json > $MAPPING_DIR/mapping-app-temp.json
                     mv $MAPPING_DIR/mapping-app-temp.json $MAPPING_DIR/mapping-app.json
                 else
-                    echo "---<<WARNING>> API - $V7_API_NAME with id $V7_API_ID is retired - Ignoring it for the mapping."
+                    echo "---<<WARNING>> API - $V7_API_NAME with id $V7_API_ID is retired - Ignoring it for the mapping." >&2
 
                 fi
             done
 
             # add current Application mapping into the target file
-            echo "  Adding application mapping section into the output generated file"
+            echo "  Adding application mapping section into the output generated file" >&2
             jq --slurpfile file2 $MAPPING_DIR/mapping-app.json '(. += $file2)' $OUTPUT_FILE > $MAPPING_DIR/tempFile.json
             mv $MAPPING_DIR/tempFile.json $OUTPUT_FILE
 

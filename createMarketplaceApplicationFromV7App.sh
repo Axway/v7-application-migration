@@ -380,7 +380,7 @@ function providerApproveSubscription() {
 
         echo "              Subscription $SUBSCRIPTION_ID approved." >&2
     else
-        echo "              Susbcription $SUBSCRIPTION_ID already approved!"
+        echo "              Susbcription $SUBSCRIPTION_ID already approved!" >&2
     fi
 
     # clean up intermediate files
@@ -742,9 +742,9 @@ function createAndProvisionCredential () {
 
                 if [[ $FILE_LENGTH != '' && $FILE_LENGTH != 0 ]] 
                 then
-                    echo "              Credential already exists, no need to create a new one."
+                    echo "              Credential already exists, no need to create a new one." >&2
                 else
-                    echo "              Credential not found, creating it..."
+                    echo "              Credential not found, creating it..." >&2
 
                     # generate credential payload...
                     jq -n -f ./jq/mkt-credential.jq --arg credentialTitle "$CREDENTIAL_TITLE" --arg credentialrequestdefinition "$CREDENTIAL_REQUEST_DEFINIITON" > "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json"
@@ -755,7 +755,7 @@ function createAndProvisionCredential () {
 #                    logDebug "Found fields=$REQUIRED_FIELDS-"
 
                     if [[ $REQUIRED_FIELDS != null ]] then
-                        echo "                  Adding mandatory fields..."
+                        echo "                  Adding mandatory fields..." >&2
                         createTheCredentialRequiredField $REQUIRED_FIELDS "$LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-fields.json"
 
                         # merge the files...
@@ -767,7 +767,7 @@ function createAndProvisionCredential () {
                     echo "                  Creating the credential $CREDENTIAL_ID on Marketplace side...." >&2
                     postToMarketplace "$MARKETPLACE_URL/api/v1/applications/$MKT_APP_ID/credentials" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-created.json"
                     error_post "Error while creating credentials $CREDENTIAL_ID for Application $MKT_APP_ID" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-created.json"
-                    echo "              Credential created." 
+                    echo "              Credential created."  >&2
 
                     # provision on provider side...
                     echo "              Provider provision the credential..." >&2
@@ -883,12 +883,13 @@ function moveV7appToAmplifyAgentsOrganization() {
 
     echo "              Finding the new name for $V7_APPLICATION_NAME_TO_MIGRATE" >&2
     # read ManagedApplication logical name based on the Marketplace application ID
-    MANAGED_APP_NAME=$(getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" ".[].name" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json")
+    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
+    MANAGED_APP_NAME=$(cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" | jq -rc '.[].name')
     echo "              New name found: $MANAGED_APP_NAME" >&2
 
     # read it and replace name and organizationID
     echo "              Updating $V7_APPLICATION_NAME_TO_MIGRATE to $MANAGED_APP_NAME..." >&2
-    cat $TEMP_FILE | jq  '[.[] | select(.name=="'"$V7_APPLICATION_NAME_TO_MIGRATE"'")]' | jq -rc '.[]' | jq '.name="'$MANAGED_APP_NAME'"' | jq '.organizationId="'$AGENT_V7_ORG_ID'"' > "$LOGS_DIR/app-move.json"
+    cat $TEMP_FILE | jq '[.[] | select(.name=="'"$V7_APPLICATION_NAME_TO_MIGRATE"'")]' | jq -rc '.[]' | jq '.name="'$MANAGED_APP_NAME'"' | jq '.organizationId="'$AGENT_V7_ORG_ID'"' > "$LOGS_DIR/app-move.json"
 
     # put it
     putToApiManager "applications/$V7_APP_ID" "$LOGS_DIR/app-move.json" "$LOGS_DIR/app-move-result.json"
@@ -925,7 +926,7 @@ migrate_v7_application() {
     # loop over the result and keep interesting data (name / description / org)
     cat $TEMP_FILE | jq -rc ".[] | {appId: .id, orgId: .organizationId, appName: .name, appDesc: .description}" | while IFS= read -r line ; do
 
-        #echo "line=$line"
+        #echo "line=$line" >&2
         # read values
         V7_APP_ID=$(echo $line | jq -r '.appId')
         V7_ORG_ID=$(echo $line | jq -r '.orgId')
@@ -977,9 +978,9 @@ migrate_v7_application() {
                     if [[ $PRODUCT_NAME != $TBD_VALUE && $PRODUCT_PLAN_NAME != $TBD_VALUE ]] 
                     then
                         # Grant access to the API to Amplify Agents org
-                        echo "          Granting Amplify Agents org accees to API $V7_API_ID..."
+                        echo "          Granting Amplify Agents org accees to API $V7_API_ID..." >&2
                         grantApiAccessToAmplifyAgentsOrganization "$V7_API_ID" "$AGENT_V7_ORG_ID"
-                        echo "          Access granted."
+                        echo "          Access granted." >&2
 
                         # read product ID
                         echo "          Reading productId fron productName=$PRODUCT_NAME" >&2
@@ -1021,9 +1022,9 @@ migrate_v7_application() {
                 rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apis.json
 
                 # provison the ManageApplication - created only once an accessrequest is added to the application
-                echo "      Provisioning the corresponding Managed application...." 
+                echo "      Provisioning the corresponding Managed application...." >&2
                 MANAGED_APP_NAME=$(providerProvisionManagedApplication "$MKT_APP_ID" "$V7_APP_ID")
-                echo "      Managed Application provisioned." 
+                echo "      Managed Application provisioned." >&2
 
                 # reading ManagedApplication encryption key
                 getFromCentralWithRetry "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
@@ -1054,7 +1055,7 @@ migrate_v7_application() {
                 ## Update V7 application: move it to Amplify Agents org / update its name so that TA still work
                 echo "      Updating v7 application $V7_APP_NAME...." >&2
                 moveV7appToAmplifyAgentsOrganization "$V7_APP_NAME" "$V7_APP_ID" "$MKT_APP_ID" "$AGENT_V7_ORG_ID"
-                echo "      v7 application [$V7_APP_NAME] updated and move to the Amplify Agents organization"
+                echo "      v7 application [$V7_APP_NAME] updated and move to the Amplify Agents organization" >&2
             else
                 echo "      /!\ No mapping found... Cannot proceed farther" >&2
             fi
