@@ -233,7 +233,6 @@ function generateMappingFile() {
         if [[ "$v7_ORG_NAME" != "Amplify Agents" ]]; then
 
             # create the mapping header (APP / owner)
-            # Add  
             echo "  Create Application ($V7_APP_NAME) mapping section..." >&2
             jq -n -f ./jq/mapping-template.jq --arg applicationName "$V7_APP_NAME" --arg owningTeam "$v7_ORG_NAME" > $MAPPING_DIR/mapping-app.json
 
@@ -244,11 +243,15 @@ function generateMappingFile() {
             cat "$LOGS_DIR/app-$V7_APP_ID-apis.json" | jq -rc ".[] | {apiId: .apiId}" | while IFS= read -r appApiLine ; do
 
                 V7_API_ID=$(echo $appApiLine | jq -rc '.apiId')
-                V7_API_NAME=$(getAPIM_APIName "$V7_API_ID")
+                # read from APIM DB
+                V7_API_INFORMTATION=$(getAPIM_API_Info "$V7_API_ID")
+
+                # extract info
+                V7_API_NAME=$(echo $V7_API_INFORMTATION | jq -rc '.name')
+                V7_API_VERSION=$(echo $V7_API_INFORMTATION | jq -rc '.version')
+                V7_API_RETIRED=$(echo $V7_API_INFORMTATION | jq -rc '.retired')
 
                 # check that the API is not retired
-                V7_API_RETIRED=$(getAPIM_APIRetired "$V7_API_ID")
-
                 if [[ "$V7_API_RETIRED" == "false" ]]; then
                     # search product Information
                     PRODUCT_INFORMATION=$(findProductInformation "$V7_API_NAME" "$V7_API_ID")
@@ -262,7 +265,7 @@ function generateMappingFile() {
                 
                     # create the mapping-api piece
                     echo "      create mapping-API for API ($V7_API_NAME)" >&2 
-                    jq -n -f ./jq/mapping-template-api.jq --arg apiName "$V7_API_NAME" --arg productName "$PRODUCT_NAME" --arg productPlanName "$PRODUCT_PLAN_NAME" --arg environment "$EMVIRONMENT_NAME" --arg apiServiceInstanceId "$APISERVICE_INSTANCE_ID" --arg credentialRequestDefinitionId "$CRD_ID" > $MAPPING_DIR/mapping-api.json
+                    jq -n -f ./jq/mapping-template-api.jq --arg apiName "$V7_API_NAME" --arg apiVersion "$V7_API_VERSION" --arg productName "$PRODUCT_NAME" --arg productPlanName "$PRODUCT_PLAN_NAME" --arg environment "$EMVIRONMENT_NAME" --arg apiServiceInstanceId "$APISERVICE_INSTANCE_ID" --arg credentialRequestDefinitionId "$CRD_ID" > $MAPPING_DIR/mapping-api.json
 
                     # add it to the Mapping array
                     echo "      add current into application mapping array" >&2
