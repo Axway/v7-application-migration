@@ -1,6 +1,5 @@
 # Axway API Manager application migration to Marketplace applications
 
-
 This document describes all the steps necessary to migrate your Axway API Manager Applications to the Amplify Enterprise Marketplace.
 The migration from Axway API Manager to the Enterprise Marketplace, consists of the following steps:
 
@@ -110,6 +109,7 @@ For each application, we have the owning team (could be empty and the migration 
     "Mapping": [
         {
             "apiName": "v7 API NAME 1",
+            "apiVersion": "v7 API VERSION",
             "productName": "MARKETPLACE PRODUCT NAME",
             "planName": "MARKETPLACE PRODUCT PLAN NAME",
             "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
@@ -118,6 +118,7 @@ For each application, we have the owning team (could be empty and the migration 
         },
         {
             "apiName": "v7 API NAME 2",
+            "apiVersion": "v7 API VERSION",
             "productName": "",
             "planName": "MARKETPLACE PRODUCT PLAN NAME",
             "environment": "CENTRAL ENVIRONMENT WHERE API HAS BEEN DISCOVERED",
