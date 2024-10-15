@@ -13,6 +13,8 @@ CREDENTIAL_DEFINTION_EXTERNAL_ID="-oauth-idp"
 CREDENTIAL_HASH_2_PARAM="2"
 CREDENTIAL_HASH_3_PARAM="3"
 
+QUERY_RETURN_VALUE_LIMIT=30
+
 # For debugging purpose
 DEBUG=0
 
@@ -123,7 +125,7 @@ function loginToPlatform {
 # Output
 # - TEAM_GUID with correct guid or "" if not existing.
 #######################################
-isPlatformTeamExisting() {
+function isPlatformTeamExisting() {
 
     ORG_ID=$1
     TEAM_NAME="$2"
@@ -150,7 +152,7 @@ isPlatformTeamExisting() {
 # 
 # Input: ORG_ID
 #############################################
-getAPIM_OrganizationName()
+function getAPIM_OrganizationName()
 {
     V7_ORGID=$1
 
@@ -162,36 +164,24 @@ getAPIM_OrganizationName()
 }
 
 #############################################
-# Get API Name based on the API_ID
+# Get API information based on the API_ID
 # 
 # Input: API_ID
+#
+# Output: Name / Retired / Version
 #############################################
-getAPIM_APIName()
+function getAPIM_API_Info()
 {
     V7_API_ID=$1
 
-    retVal=$(getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json" ".name")
+    getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json"
+	retVal=$(cat "$LOGS_DIR/api-$V7_API_ID.json" | jq -rc '{name: .name, retired: .retired, version: .version}')
 
-	deleteFile $LOGS_DIR/api-"$V7_API_ID".json
-    
-    echo "$retVal"
+	deleteFile "$LOGS_DIR/api-$V7_API_ID.json"
+
+	echo "$retVal"
 }
 
-#############################################
-# Get retired information based on the API_ID
-# 
-# Input: API_ID
-#############################################
-getAPIM_APIRetired()
-{
-    V7_API_ID=$1
-
-    retVal=$(getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json" ".retired")
-
-	rm -rf $LOGS_DIR/api-"$V7_API_ID".json
-    
-    echo "$retVal"
-}
 
 ################################################
 # Retrieve specific credential for a given APP 

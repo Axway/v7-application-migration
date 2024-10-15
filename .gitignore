@@ -1,9 +1,11 @@
 Logs
-Config/envLBEAN018*.properties
+Config/envLBEAN*.properties
+Config/envHM.properties
 Config/envPHX12.properties
-Mapping/mappingApi-ProductCB.json
-Mapping/mappingAPP-Product-generated-CB.json
+Mapping/BCBSMNSalesTech.json
+Mapping/mappingApi*.json
+Mapping/mapping-*.json
 Mapping/test-CB*.json
+Mapping/mapping-Sample-Retired.json
 notes.txt
-test-CB.json
 Tests/readme.txt

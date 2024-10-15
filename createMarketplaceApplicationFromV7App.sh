@@ -302,9 +302,15 @@ function createMarketplaceAccessRequestIfNotExisting() {
     local LOG_FILE="$LOGS_DIR/mkt-product-$SANITIZE_PRODUCT_NAME-resource-search.json"
 
     echo "              Finding assetResource identifier..." >&2
-    getFromMarketplace "$MARKETPLACE_URL/api/v1/products/$MP_PRODUCT_ID/versions/$MP_PRODUCT_VERSION_ID/assetresources?limit=10&offset=0&search=" "" "$LOG_FILE"
+    getFromMarketplace "$MARKETPLACE_URL/api/v1/products/$MP_PRODUCT_ID/versions/$MP_PRODUCT_VERSION_ID/assetresources?limit=$QUERY_RETURN_VALUE_LIMIT&offset=0&search=" "" "$LOG_FILE"
 
     MKT_PDT_RESOURCE_NUMBER=`cat "$LOG_FILE" | jq -rc '.totalCount'`
+
+    if [[ $MKT_PDT_RESOURCE_NUMBER > $QUERY_RETURN_VALUE_LIMIT ]]
+    then
+        echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the enviornment with a greater value than: $MKT_PDT_RESOURCE_NUMBER. Then restart the migration procedure." >&2
+        exit -1
+    fi
 
     if [[ $MKT_PDT_RESOURCE_NUMBER != 0 ]]
     then
@@ -966,14 +972,17 @@ migrate_v7_application() {
                 cat "$LOGS_DIR/app-$V7_APP_ID-apis.json" | jq -rc ".[] | {apiId: .apiId}" | while IFS= read -r appApiLine ; do
 
                     V7_API_ID=$(echo $appApiLine | jq -r '.apiId')
-                    V7_API_NAME=$(getAPIM_APIName "$V7_API_ID")
-                    echo "          Found API: id=$V7_API_ID / name=$V7_API_NAME" >&2
+                    V7_API_INFO=$(getAPIM_API_Info "$V7_API_ID")
+                    V7_API_NAME=$(echo $V7_API_INFO | jq -rc '.name')
+                    V7_API_VERSION=$(echo $V7_API_INFO | jq -rc '.version')
+
+                    echo "          Found API: id=$V7_API_ID / name=$V7_API_NAME and version=$V7_API_VERSION" >&2
 
                     # retrieve Product, and plan for creating the subscription
                     echo "              Searching corresponding productID and planID for creating the subscription..." >&2
-                    PRODUCT_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.productName')
-                    PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.planName')
-                    APISERVICE_INSTANCE_ID=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'")' | jq -rc '.apiServiceInstanceId')
+                    PRODUCT_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.productName')
+                    PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.planName')
+                    APISERVICE_INSTANCE_ID=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.apiServiceInstanceId')
 
                     if [[ $PRODUCT_NAME != $TBD_VALUE && $PRODUCT_PLAN_NAME != $TBD_VALUE ]] 
                     then
@@ -1091,6 +1100,14 @@ then
 else 
     # default env config file
     source ./Config/env.properties
+fi
+
+if [[ $QUERY_LIMIT != "" ]]
+then
+    QUERY_RETURN_VALUE_LIMIT=$QUERY_LIMIT
+    echo "Increasing default query limit to $QUERY_RETURN_VALUE_LIMIT"
+else 
+    echo "Default query limit applied $QUERY_RETURN_VALUE_LIMIT"
 fi
 
 echo "Checking pre-requisites (axway CLI, curl and jq)"

@@ -3,7 +3,8 @@
 # Guillaume repo = https://git-ext.ecd.axway.com/cso-reusable/api-management/amplify-components/-/tree/main/marketplace/migration/engie/app-migration-tool-v2?ref_type=heads
 
 # Sourcing user-provided env properties
-source ../config/envLBEAN018.properties
+#source ../config/envLBEAN018.properties
+source ../config/envLBEAN-QA-DEV.properties
 
 # add all utility functions
 source ../utils.sh
@@ -297,18 +298,30 @@ testMarketplaceRetrieval() {
 
 testAPIisRetired() {
 
+# from LBEAN004
+    API_INFO=$(getAPIM_API_Info "a6814243-cb9c-4e9b-936d-3042d3dad459")
+
+    retired=$(echo $API_INFO | jq -rc '.retired')
+    name=$(echo $API_INFO | jq -rc '.name')
     # not retired - false expected
-    retVal=$(getAPIM_APIRetired "d2604ae4-9ac9-4eee-8ac6-82ae0cd9fbe8")
-    if [[ "$retVal" == "false" ]] then
-        echo "API not retired" >&2
+    if [[ "$retired" == "false" ]] then
+        echo "API ($name) not retired" >&2
     fi
 
     # retired - true expected
-    retVal=$(getAPIM_APIRetired "83858891-a945-4c1b-b49a-cbf3c53b16d9")
-    if [[ "$retVal" == "true" ]] then
-        echo "API is retired" >&2
+    API_INFO=$(getAPIM_API_Info "b3e1330a-56b1-4484-86fe-966c89b0c793")
+
+    retired=$(echo $API_INFO | jq -rc '.retired')
+    name=$(echo $API_INFO | jq -rc '.name')
+    if [[ "$retired" == "true" ]] then
+        echo "API ($name) is retired" >&2
     fi
 
+}
+
+testGetAPIM_API_Info()
+{
+    getAPIM_API_Info "a6814243-cb9c-4e9b-936d-3042d3dad459"
 }
 
 ################# MAIN #################
@@ -329,4 +342,5 @@ testAPIisRetired() {
 #testCryptingCredentialValue
 #loginFromApi
 #testMarketplaceRetrieval
+#testGetAPIM_API_Info
 testAPIisRetired
