@@ -123,7 +123,8 @@ function createMarketplaceApplicationIfNotExisting() {
 
     MKT_APP_NUMBER=`cat "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json" | jq -rc '.totalCount'`
     
-    if [[ $MKT_APP_NUMBER != 0 ]] then
+    if [[ $MKT_APP_NUMBER != 0 ]]
+    then
         
         echo "      We found application, checking it belongs to the correct team" >&2
         # Check that the title and owningTeam match as it is forbidden to have twice the same app now!!
@@ -137,7 +138,8 @@ function createMarketplaceApplicationIfNotExisting() {
         NEED_CREATE_APP=1
     fi
 
-    if [[ $NEED_CREATE_APP == 1 ]] then
+    if [[ $NEED_CREATE_APP == 1 ]] 
+    then
         # TODO = Application icon
         #https://lbean018.lab.phx.axway.int:8075/api/portal/v1.4/applications/b876ab64-60b7-4393-8cc9-ffa56128d583/image
         #getFromApiManager
@@ -760,7 +762,8 @@ function createAndProvisionCredential () {
                     REQUIRED_FIELDS=$(cat "$LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json" | jq -rc '.[].spec.schema.required')
 #                    logDebug "Found fields=$REQUIRED_FIELDS-"
 
-                    if [[ $REQUIRED_FIELDS != null ]] then
+                    if [[ $REQUIRED_FIELDS != null ]] 
+                    then
                         echo "                  Adding mandatory fields..." >&2
                         createTheCredentialRequiredField $REQUIRED_FIELDS "$LOGS_DIR/crds-$CREDENTIAL_REQUEST_DEFINIITON.json" "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID-fields.json"
 
@@ -975,54 +978,62 @@ migrate_v7_application() {
                     V7_API_INFO=$(getAPIM_API_Info "$V7_API_ID")
                     V7_API_NAME=$(echo $V7_API_INFO | jq -rc '.name')
                     V7_API_VERSION=$(echo $V7_API_INFO | jq -rc '.version')
+                    V7_API_RETIRED=$(echo $V7_API_INFO | jq -rc '.retired')
 
                     echo "          Found API: id=$V7_API_ID / name=$V7_API_NAME and version=$V7_API_VERSION" >&2
 
-                    # retrieve Product, and plan for creating the subscription
-                    echo "              Searching corresponding productID and planID for creating the subscription..." >&2
-                    PRODUCT_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.productName')
-                    PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.planName')
-                    APISERVICE_INSTANCE_ID=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.apiServiceInstanceId')
-
-                    if [[ $PRODUCT_NAME != $TBD_VALUE && $PRODUCT_PLAN_NAME != $TBD_VALUE ]] 
+                    #/!\ remove retired app
+                    if [[ $V7_API_RETIRED == false ]]
                     then
-                        # Grant access to the API to Amplify Agents org
-                        echo "          Granting Amplify Agents org accees to API $V7_API_ID..." >&2
-                        grantApiAccessToAmplifyAgentsOrganization "$V7_API_ID" "$AGENT_V7_ORG_ID"
-                        echo "          Access granted." >&2
 
-                        # read product ID
-                        echo "          Reading productId fron productName=$PRODUCT_NAME" >&2
-                        MP_PRODUCT_IDENTIFIERS=$(getMarketplaceProductIdFromProductName "$PRODUCT_NAME")
-                        MP_PRODUCT_ID=$(echo $MP_PRODUCT_IDENTIFIERS | jq -rc '.productId')
-                        MP_PRODUCT_LATEST_VERSION_ID=$(echo $MP_PRODUCT_IDENTIFIERS | jq -rc '.productLatestVersionId')
-                        # read plan ID
-                        echo "          Reading planId fron productName=$PRODUCT_NAME" >&2
-                        MP_PRODUCT_PLAN_ID=$(getMarketplacePlanIdFromPlanName "$MP_PRODUCT_ID" "$PRODUCT_PLAN_NAME")
+                        # retrieve Product, and plan for creating the subscription
+                        echo "              Searching corresponding productID and planID for creating the subscription..." >&2
+                        PRODUCT_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.productName')
+                        PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.planName')
+                        APISERVICE_INSTANCE_ID=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.apiServiceInstanceId')
 
-                        # create the subscription
-                        echo "          Creating a subscritpion..." >&2
-                        MKT_SUBSCRIPTION_ID=$(createMarketplaceSubscriptionIfNotExisting "$v7_ORG_NAME" "$TEAM_GUID" "$PRODUCT_PLAN_NAME" "$MP_PRODUCT_PLAN_ID" "$PRODUCT_NAME" "$MP_PRODUCT_ID")
-                        echo "          Subscription ID=$MKT_SUBSCRIPTION_ID" >&2
+                        if [[ $PRODUCT_NAME != $TBD_VALUE && $PRODUCT_PLAN_NAME != $TBD_VALUE ]] 
+                        then
+                            # Grant access to the API to Amplify Agents org
+                            echo "          Granting Amplify Agents org accees to API $V7_API_ID..." >&2
+                            grantApiAccessToAmplifyAgentsOrganization "$V7_API_ID" "$AGENT_V7_ORG_ID"
+                            echo "          Access granted." >&2
 
-                        # Approve the subscription if manual porocess in place
-                        echo "          Approving the Subscription..." >&2
-                        providerApproveSubscription "$MKT_SUBSCRIPTION_ID"
+                            # read product ID
+                            echo "          Reading productId fron productName=$PRODUCT_NAME" >&2
+                            MP_PRODUCT_IDENTIFIERS=$(getMarketplaceProductIdFromProductName "$PRODUCT_NAME")
+                            MP_PRODUCT_ID=$(echo $MP_PRODUCT_IDENTIFIERS | jq -rc '.productId')
+                            MP_PRODUCT_LATEST_VERSION_ID=$(echo $MP_PRODUCT_IDENTIFIERS | jq -rc '.productLatestVersionId')
+                            # read plan ID
+                            echo "          Reading planId fron productName=$PRODUCT_NAME" >&2
+                            MP_PRODUCT_PLAN_ID=$(getMarketplacePlanIdFromPlanName "$MP_PRODUCT_ID" "$PRODUCT_PLAN_NAME")
 
-                        ## Access Request Management ##
-                        echo "          Creating Access request..." >&2
-                        MKT_ACCESS_REQUEST_ID=$(createMarketplaceAccessRequestIfNotExisting "$V7_APP_NAME" "$V7_API_NAME" "$PRODUCT_NAME" "$MP_PRODUCT_ID" "$MP_PRODUCT_LATEST_VERSION_ID" "$MKT_SUBSCRIPTION_ID" "$MKT_APP_ID" "$APISERVICE_INSTANCE_ID")
-                        echo "          Access request created." >&2
+                            # create the subscription
+                            echo "          Creating a subscritpion..." >&2
+                            MKT_SUBSCRIPTION_ID=$(createMarketplaceSubscriptionIfNotExisting "$v7_ORG_NAME" "$TEAM_GUID" "$PRODUCT_PLAN_NAME" "$MP_PRODUCT_PLAN_ID" "$PRODUCT_NAME" "$MP_PRODUCT_ID")
+                            echo "          Subscription ID=$MKT_SUBSCRIPTION_ID" >&2
 
-                        echo "          Approve Access request..." >&2
-                        providerApproveAccesRequest "$MKT_APP_ID" "$MKT_ACCESS_REQUEST_ID"
-                        echo "          Access request approved." >&2
+                            # Approve the subscription if manual porocess in place
+                            echo "          Approving the Subscription..." >&2
+                            providerApproveSubscription "$MKT_SUBSCRIPTION_ID"
 
-                        echo "          Provisioning the Access Request..." >&2
-                        providerProvisionAccesRequest "$V7_APP_NAME" "$V7_APP_ID" "$V7_API_ID" "$MKT_ACCESS_REQUEST_ID"
-                        echo "          Access Request provisioned." >&2
+                            ## Access Request Management ##
+                            echo "          Creating Access request..." >&2
+                            MKT_ACCESS_REQUEST_ID=$(createMarketplaceAccessRequestIfNotExisting "$V7_APP_NAME" "$V7_API_NAME" "$PRODUCT_NAME" "$MP_PRODUCT_ID" "$MP_PRODUCT_LATEST_VERSION_ID" "$MKT_SUBSCRIPTION_ID" "$MKT_APP_ID" "$APISERVICE_INSTANCE_ID")
+                            echo "          Access request created." >&2
+
+                            echo "          Approve Access request..." >&2
+                            providerApproveAccesRequest "$MKT_APP_ID" "$MKT_ACCESS_REQUEST_ID"
+                            echo "          Access request approved." >&2
+
+                            echo "          Provisioning the Access Request..." >&2
+                            providerProvisionAccesRequest "$V7_APP_NAME" "$V7_APP_ID" "$V7_API_ID" "$MKT_ACCESS_REQUEST_ID"
+                            echo "          Access Request provisioned." >&2
+                        else
+                            echo "          /!\ productName and/or planName for application ($V7_APP_NAME) and api ($V7_API_NAME) are not defined in the mapping, cannot proceed farther" >&2
+                        fi
                     else
-                        echo "          /!\ productName and/or planName for application ($V7_APP_NAME) and api ($V7_API_NAME) are not defined in the mapping, cannot proceed farther" >&2
+                        echo "          /!\ Skipping api ($V7_API_NAME - $V7_API_VERSION) as retired" >&2
                     fi
 
                 done
