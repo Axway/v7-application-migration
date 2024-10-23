@@ -323,8 +323,15 @@ function createMarketplaceAccessRequestIfNotExisting() {
         then
             # checking if access already exits
             echo "              Checking if access already exist" >&2
-            getFromMarketplace "$MARKETPLACE_URL/api/v1/applications/$MP_APPLICATION_ID/accessRequests" "" "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json"
+            getFromMarketplace "$MARKETPLACE_URL/api/v1/applications/$MP_APPLICATION_ID/accessRequests?limit=$QUERY_RETURN_VALUE_LIMIT" "" "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json"
+
             ACCESS_REQUEST_RESULT=$(cat "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json" | jq -rc '.totalCount')
+
+            if [[ $ACCESS_REQUEST_RESULT > $QUERY_RETURN_VALUE_LIMIT ]]
+            then
+                echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the enviornment with a greater value than: $MKT_PDT_RESOURCE_NUMBER. Then restart the migration procedure." >&2
+                exit -1
+            fi
 
             if [[ $ACCESS_REQUEST_RESULT != 0 ]]
             then
@@ -613,18 +620,19 @@ function createTheCredentialRequiredField() {
     local REQUIRED_FIELDS=$1
     local CRD_FILE=$2
     local OUTPUT_FILE=$3
+    local FIELD=0
 
     FIELD_NUMBER=$(echo $REQUIRED_FIELDS | jq length)
 
     if [[ $FIELD_NUMBER != 0 ]]
     then
         echo "{\"data\":{" > $OUTPUT_FILE
-        for (( i=0; i<$FIELD_NUMBER; i++ )) ; {
+        for (( FIELD=0; i<$FIELD_NUMBER; FIELD++ )) ; {
 
-            FIELD_NAME=$(echo $REQUIRED_FIELDS | jq -rc '.['$i']')
+            FIELD_NAME=$(echo $REQUIRED_FIELDS | jq -rc '.['$FIELD']')
             FIELD_VALUE=$(findCredentialFieldValue $FIELD_NAME "$CRD_FILE")
             
-            if [[ $i == 0 ]]
+            if [[ $FIELD == 0 ]]
             then
                 echo "\"$FIELD_NAME\":\"$FIELD_VALUE\"" >> $OUTPUT_FILE
             else
@@ -958,8 +966,6 @@ migrate_v7_application() {
 
             ## Subscription Management ##
             echo "      Creating access request for application $V7_APP_NAME" >&2
-            # list APIs assigned to the Application
-            getFromApiManager "applications/$V7_APP_ID/apis" "$LOGS_DIR/app-$V7_APP_ID-apis.json"
 
             # retieve mappings associated to the Application
             echo "      Searching mapping assigned to the Application..." >&2
@@ -970,6 +976,9 @@ migrate_v7_application() {
             then
                 # find productID, productVersion and resourceID
                 echo "      Mapping found." >&2
+
+                # list APIs assigned to the Application
+                getFromApiManager "applications/$V7_APP_ID/apis" "$LOGS_DIR/app-$V7_APP_ID-apis.json"
 
                 # for each API assigned to the Application,
                 cat "$LOGS_DIR/app-$V7_APP_ID-apis.json" | jq -rc ".[] | {apiId: .apiId}" | while IFS= read -r appApiLine ; do
