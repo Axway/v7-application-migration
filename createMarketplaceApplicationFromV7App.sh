@@ -116,7 +116,7 @@ function createMarketplaceApplicationIfNotExisting() {
     # sanitize name for file name...
     local MKT_APP_NAME_SANITIZED=$(sanitizeName "$MKT_APP_NAME") 
     # sanitize name for query search...
-    local MKT_APP_NAME_FOR_SEARCH=$(sanitizeNameForQuery "$MKT_APP_NAME")      
+    local MKT_APP_NAME_FOR_SEARCH=$(sanitizeNameForQuery "$MKT_APP_NAME")   
 
     # Get app from Makretplace - this query add a * to the name... 
     getFromMarketplace "$MARKETPLACE_URL/api/v1/applications?limit=10&offset=0&search=$MKT_APP_NAME_FOR_SEARCH&sort=-metadata.modifiedAt%2C%2Bname" "" "$LOGS_DIR/mkt-application-$MKT_APP_NAME_SANITIZED-search.json"
@@ -310,7 +310,7 @@ function createMarketplaceAccessRequestIfNotExisting() {
 
     if [[ $MKT_PDT_RESOURCE_NUMBER > $QUERY_RETURN_VALUE_LIMIT ]]
     then
-        echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the enviornment with a greater value than: $MKT_PDT_RESOURCE_NUMBER. Then restart the migration procedure." >&2
+        echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the environment with a greater value than: $MKT_PDT_RESOURCE_NUMBER. Then restart the migration procedure." >&2
         exit -1
     fi
 
