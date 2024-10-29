@@ -154,7 +154,7 @@ function createMarketplaceApplicationIfNotExisting() {
     fi
 
     # clean up temporary files
-    deleteFile -rf $LOGS_DIR/mkt-application-"$MKT_APP_NAME_SANITIZED"*.json
+    deleteFile $LOGS_DIR/mkt-application-"$MKT_APP_NAME_SANITIZED"*.json
 
     echo "$MP_APPLICATION_ID"
 }
@@ -172,44 +172,64 @@ function providerProvisionManagedApplication() {
 
     local MKT_APP_ID=$1
     local V7_APP_ID=$2
-
+    local MANAGED_APP_COUNTER=0
+    local MANAGED_APP_COUNT=0
     # find the managedApplication corresponding to the Marketplace application
-    getFromCentralWithRetry "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
+    getFromCentralWithRetry "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-all.json"
 
-    # read existing information for the post (AccReq name + environment name)
-    MANAGED_APP_NAME=$(cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" | jq -rc '.[].name')
-    MANAGED_APP_ENVIRONMENT_NAME=$(cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" | jq -r '.[].metadata.scope.name')
+    MANAGED_APP_COUNT=`jq length "$LOGS_DIR/app-managedapp-$MKT_APP_ID-all.json"`
 
-    # mark it as provisioned (add the finalizers)
-    jq --slurpfile file2 ./jq/agent-app-finalizer.json '(.[].finalizers += $file2)' "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" > "$LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json"
+    for (( MANAGED_APP_COUNTER=0; MANAGED_APP_COUNTER<$MANAGED_APP_COUNT; MANAGED_APP_COUNTER++ )) ; {
 
-    # Remove references and status
-    cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json"  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )' > "$LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json"
-    
-    # Post to Central
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated.json"
-    error_exit "Problem while updating the managedApplication agent information..." "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated.json"
+        # get the information
+        cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID-all.json" | jq -rc '.['"$MANAGED_APP_COUNTER"']' >  "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
 
-    # adding x-agent-details
-    jq -n -f ./jq/agent-app-details.jq --arg applicationID $V7_APP_ID --arg applicationName $MANAGED_APP_NAME > "$LOGS_DIR/agent-access-details-$MKT_APP_ID.json"
+        MANAGED_APP_STATUS=$(cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" | jq -rc '.status.level')
 
-    # Post to Central
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME/x-agent-details" "$LOGS_DIR/agent-access-details-$MKT_APP_ID.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-agent-details.json"
-    error_exit "Problem while updating the agent details info..." "$LOGS_DIR/app-managedapp-$MKT_APP_ID-agent-details.json"
+        if [[ $MANAGED_APP_STATUS == "Pending" ]]
+        then
+            MANAGED_APP_NAME=$(cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" | jq -rc '.name')
+            MANAGED_APP_ENVIRONMENT_NAME=$(cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" | jq -rc '.metadata.scope.name')
 
-    # Update status
-    # mark it as done -> level = SUCCESS
-    TIMESTAMP=$(date --utc +%FT%T.%3N%z)
-    jq -n -f ./jq/agent-status-success.jq --arg timestampUTC "$TIMESTAMP" > "$LOGS_DIR/agent-status-success.json"
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME/status" "$LOGS_DIR/agent-status-success.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json"
-    error_exit "Problem while updating the access request status..." "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json"
+            # mark it as provisioned (add the finalizers)
+            jq --slurpfile file2 ./jq/agent-app-finalizer.json '(.finalizers += $file2)' "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" > "$LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json"
 
-    #clean up intermediate files
-    rm -rf $LOGS_DIR/app-managedapp-"$MKT_APP_ID"*.json
-    rm -rf $LOGS_DIR/agent-access-details-"$MKT_APP_ID".json
-    rm -rf $LOGS_DIR/agent-status-success.json
+            # Remove references and status
+            cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID-finalizer.json"  | jq -rc '.' | jq 'del(. | .status?, .metadata.references?, .references? )' > "$LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json"
+            
+            # Post to Central
+            putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-update.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated.json"
+            error_exit "Problem while updating the managedApplication agent information..." "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated.json"
 
-    echo "$MANAGED_APP_NAME"
+            # adding x-agent-details
+            jq -n -f ./jq/agent-app-details.jq --arg applicationID $V7_APP_ID --arg applicationName $MANAGED_APP_NAME > "$LOGS_DIR/agent-access-details-$MKT_APP_ID.json"
+
+            # Post to Central
+            putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME/x-agent-details" "$LOGS_DIR/agent-access-details-$MKT_APP_ID.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-agent-details.json"
+            error_exit "Problem while updating the agent details info..." "$LOGS_DIR/app-managedapp-$MKT_APP_ID-agent-details.json"
+
+            # Update status
+            # mark it as done -> level = SUCCESS
+            TIMESTAMP=$(date --utc +%FT%T.%3N%z)
+            jq -n -f ./jq/agent-status-success.jq --arg timestampUTC "$TIMESTAMP" > "$LOGS_DIR/agent-status-success.json"
+            putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$MANAGED_APP_ENVIRONMENT_NAME/managedapplications/$MANAGED_APP_NAME/status" "$LOGS_DIR/agent-status-success.json" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json"
+            error_exit "Problem while updating the access request status..." "$LOGS_DIR/app-managedapp-$MKT_APP_ID-updated-state.json"
+
+            #clean up intermediate files
+            deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID".json
+            deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID"-finalizer.json
+            deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID"-update.json
+            deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID"-updated-state.json
+            deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID"-updated.json
+            deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID"-agent-details.json
+            deleteFile $LOGS_DIR/agent-access-details-"$MKT_APP_ID".json
+            deleteFile $LOGS_DIR/agent-status-success.json
+        fi
+        #else ignore the managedapp as already provisioned.
+    }
+
+    # clean up
+    deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID"-all.json
 }
 
 ####################################################################
@@ -329,7 +349,7 @@ function createMarketplaceAccessRequestIfNotExisting() {
 
             if [[ $ACCESS_REQUEST_RESULT > $QUERY_RETURN_VALUE_LIMIT ]]
             then
-                echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the enviornment with a greater value than: $MKT_PDT_RESOURCE_NUMBER. Then restart the migration procedure." >&2
+                echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the enviornment with a greater value than: $ACCESS_REQUEST_RESULT. Then restart the migration procedure." >&2
                 exit -1
             fi
 
@@ -435,7 +455,8 @@ providerApproveAccesRequest() {
     fi
 
     # clean up intermediate files
-    rm -rf "$LOGS_DIR/application-$APPLICATION_NAME*"
+    rm -rf $LOGS_DIR/application-$MKT_APPLICATION_ID.json
+    rm -rf $LOGS_DIR/application-$APPLICATION_NAME-asset-request-*.json
 }
 
 #####################################################################
@@ -464,35 +485,41 @@ function providerProvisionAccesRequest() {
     # read existing information for the post (AccReq name + environment name)
     ACCESS_REQUEST_NAME=$(cat "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json" | jq -rc '.[].name')
     ACCESS_REQUEST_ENVIRONMENT_NAME=$(cat "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json" | jq -r '.[].metadata.scope.name')
+    ACCESS_REQUEST_STATUS=$(cat "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json" | jq -r '.[].status.level')
 
-    # mark it as provisioned (add the finalizers)
-    jq --slurpfile file2 ./jq/agent-accreq-finalizer.json '(.[].finalizers += $file2)' "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json" > "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-finalizer.json"
+    if [[ $ACCESS_REQUEST_STATUS == "Pending" ]]
+    then
+        # mark it as provisioned (add the finalizers)
+        jq --slurpfile file2 ./jq/agent-accreq-finalizer.json '(.[].finalizers += $file2)' "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID.json" > "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-finalizer.json"
 
-    # Remove references and status
-    cat "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-finalizer.json"  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )' > "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-update.json"
-    
-    # Post to Central
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-update.json" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated.json"
-#    error_post "Problem while updating the access request agent information..." "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated.json"
+        # Remove references and status
+        cat "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-finalizer.json"  | jq -rc '.[]' | jq 'del(. | .status?, .metadata.references?, .references? )' > "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-update.json"
+        
+        # Post to Central
+        putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-update.json" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated.json"
+    #    error_post "Problem while updating the access request agent information..." "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated.json"
 
-    # Add x-agent-details
-    jq -n -f ./jq/agent-accreq-details.jq --arg accessID "$V7_API_ID" --arg applicationID $V7_APP_ID > "$LOGS_DIR/agent-access-details-$V7_APP_ID.json"
+        # Add x-agent-details
+        jq -n -f ./jq/agent-accreq-details.jq --arg accessID "$V7_API_ID" --arg applicationID $V7_APP_ID > "$LOGS_DIR/agent-access-details-$V7_APP_ID.json"
 
-    # Post to Central
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/x-agent-details" "$LOGS_DIR/agent-access-details-$V7_APP_ID.json" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-agent-details.json"
-#    error_post "Problem while updating the agent details info..." "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
+        # Post to Central
+        putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/x-agent-details" "$LOGS_DIR/agent-access-details-$V7_APP_ID.json" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-agent-details.json"
+    #    error_post "Problem while updating the agent details info..." "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
 
-    # Update status
-    # mark it as done -> level = SUCCESS
-    TIMESTAMP=$(date --utc +%FT%T.%3N%z)
-    jq -n -f ./jq/agent-status-success.jq --arg timestampUTC "$TIMESTAMP" > "$LOGS_DIR/agent-status-success.json"
-    putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/status" "$LOGS_DIR/agent-status-success.json" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
-#    error_post "Problem while updating the access request status..." "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
+        # Update status
+        # mark it as done -> level = SUCCESS
+        TIMESTAMP=$(date --utc +%FT%T.%3N%z)
+        jq -n -f ./jq/agent-status-success.jq --arg timestampUTC "$TIMESTAMP" > "$LOGS_DIR/agent-status-success.json"
+        putToCentral "$CENTRAL_URL/apis/management/v1alpha1/environments/$ACCESS_REQUEST_ENVIRONMENT_NAME/accessrequests/$ACCESS_REQUEST_NAME/status" "$LOGS_DIR/agent-status-success.json" "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
+    #    error_post "Problem while updating the access request status..." "$LOGS_DIR/accrequest-$MKT_ACCESS_REQUEST_ID-updated-state.json"
 
-    #clean up intermediate files
-    rm -rf $LOGS_DIR/accrequest-"$MKT_ACCESS_REQUEST_ID"*.json
-    rm -rf $LOGS_DIR/agent-access-details-"$V7_APP_ID".json
-    rm -rf $LOGS_DIR/agent-status-success.json
+        #clean up intermediate files
+        rm -rf $LOGS_DIR/accrequest-"$MKT_ACCESS_REQUEST_ID"*.json
+        rm -rf $LOGS_DIR/agent-access-details-"$V7_APP_ID".json
+        rm -rf $LOGS_DIR/agent-status-success.json
+    else
+        echo "          Access Request already provisioned" >&2
+    fi
 }
 
 ###################################################
@@ -508,12 +535,13 @@ function findCredentialRequestDefinition() {
     local CREDENTIAL_TYPE=$1
     local APP_MAPPING=$2
     local CRD_FOUND=""
+    local MAPPING=0
 
 #    logDebug "Search for corresponding CRD of type $CREDENTIAL_TYPE"
     # find CRDs from mapping file
     MAPPING_NUMBER=`jq length $APP_MAPPING`
 
-    for (( i=0; i<$MAPPING_NUMBER; i++ )) ; {
+    for (( MAPPING=0; i<$MAPPING_NUMBER; MAPPING++ )) ; {
         # extract information
         MAPPING_VALUE=$(cat $APP_MAPPING | jq -rc '.['$i']')
 #        logDebug "$i = $MAPPING_VALUE"
@@ -627,7 +655,7 @@ function createTheCredentialRequiredField() {
     if [[ $FIELD_NUMBER != 0 ]]
     then
         echo "{\"data\":{" > $OUTPUT_FILE
-        for (( FIELD=0; i<$FIELD_NUMBER; FIELD++ )) ; {
+        for (( FIELD=0; FIELD<$FIELD_NUMBER; FIELD++ )) ; {
 
             FIELD_NAME=$(echo $REQUIRED_FIELDS | jq -rc '.['$FIELD']')
             FIELD_VALUE=$(findCredentialFieldValue $FIELD_NAME "$CRD_FILE")
@@ -702,17 +730,18 @@ function provisionCredentialValueForMarketplace () {
 # - $3: Marketplace application ID
 # - $5: Mapping information
 # - $6: Encryption key coming from the corresponding ManagedApplication
+# - $7: Credential suffix to add to the name (help distinguih credential from different env)
 # Ouput:
 ############################################
 function createAndProvisionCredential () {
 
     local V7_APP_ID=$1
-    local MANAGED_APP_NAME=$2
-    local CREDENTIAL_LIST=$3
-    local CREDENTIAL_TYPE=$4
-    local MKT_APP_ID=$5
-    local APP_MAPPING=$6
-    local ENCRYPTION_KEY_FILE=$7
+    local CREDENTIAL_LIST=$2
+    local CREDENTIAL_TYPE=$3
+    local MKT_APP_ID=$4
+    local APP_MAPPING=$5
+    local ENCRYPTION_KEY_FILE=$6
+    local CREDENTIAL_SUFFIX=$7
 
     # for each in the list do
     CREDENTIAL_NUMBER=`jq length $CREDENTIAL_LIST`
@@ -747,7 +776,7 @@ function createAndProvisionCredential () {
             if [[ $CREDENTIAL_REQUEST_DEFINIITON != "" ]]
             then
                 # by definition, we create the credential as follows: $CREDENTIAL_TYPE_$COUNTER to ofuscate the v7 credential ID that is the API_KEY.
-                CREDENTIAL_TITLE="$CREDENTIAL_TYPE"_"$i"
+                CREDENTIAL_TITLE="$CREDENTIAL_TYPE"_"$i"_"$CREDENTIAL_SUFFIX"
 
                 # Search if credential already exist on consumer side
                 local URL="$CENTRAL_URL/apis/management/v1alpha1/credentials?query=title==$CREDENTIAL_TITLE+and+metadata.references.id==$MKT_APP_ID"
@@ -872,12 +901,9 @@ function createAndProvisionCredential () {
             else
                 echo "---<<WARNING>> No credential of type $CREDENTIAL_TYPE found in the mapping." >&2
             fi
-
-
-
         }
     else
-        echo "No credential of type $CREDENTIAL_TYPE in the application $MKT_APP_ID" >&2
+        echo "              No credential of type $CREDENTIAL_TYPE in the application $MKT_APP_ID" >&2
     fi
 }
 
@@ -900,22 +926,27 @@ function moveV7appToAmplifyAgentsOrganization() {
 
     echo "              Finding the new name for $V7_APPLICATION_NAME_TO_MIGRATE" >&2
     # read ManagedApplication logical name based on the Marketplace application ID
-    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
+    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/managedapplications?query=metadata.references.id==$MKT_APP_ID" "" "$LOGS_DIR/app-managedapp-$MKT_APP_ID-all.json"
+
+    # multiple apps can be returned, need to filter based on x-agent-details.applicationID
+    jq '[.[] | select(.["x-agent-details"].applicationID == "'"$V7_APPLICATION_ID"'")]' "$LOGS_DIR/app-managedapp-$MKT_APP_ID-all.json" > "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json"
+
     MANAGED_APP_NAME=$(cat "$LOGS_DIR/app-managedapp-$MKT_APP_ID.json" | jq -rc '.[].name')
     echo "              New name found: $MANAGED_APP_NAME" >&2
 
     # read it and replace name and organizationID
     echo "              Updating $V7_APPLICATION_NAME_TO_MIGRATE to $MANAGED_APP_NAME..." >&2
-    cat $TEMP_FILE | jq '[.[] | select(.name=="'"$V7_APPLICATION_NAME_TO_MIGRATE"'")]' | jq -rc '.[]' | jq '.name="'$MANAGED_APP_NAME'"' | jq '.organizationId="'$AGENT_V7_ORG_ID'"' > "$LOGS_DIR/app-move.json"
+    cat $TEMP_FILE | jq '[.[] | select(.name=="'"$V7_APPLICATION_NAME_TO_MIGRATE"'")]' | jq -rc '.[]' | jq '.name="'"$MANAGED_APP_NAME"'"' | jq '.organizationId="'"$AGENT_V7_ORG_ID"'"' > "$LOGS_DIR/app-move.json"
 
     # put it
     putToApiManager "applications/$V7_APP_ID" "$LOGS_DIR/app-move.json" "$LOGS_DIR/app-move-result.json"
     echo "              $MANAGED_APP_NAME created and moved into Amplify Agents organization" >&2
 
     # clean up intermediate files
-    rm -rf $LOGS_DIR/app-managedapp-"$MKT_APP_ID".json
-    rm -rf $LOGS_DIR/app-move.json
-    rm -rf $LOGS_DIR/app-move-result.json
+    deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID".json
+    deleteFile $LOGS_DIR/app-managedapp-"$MKT_APP_ID"-all.json
+    deleteFile $LOGS_DIR/app-move.json
+    deleteFile $LOGS_DIR/app-move-result.json
 }
 
 ########################################################
@@ -1001,6 +1032,7 @@ migrate_v7_application() {
                         PRODUCT_PLAN_NAME=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.planName')
                         APISERVICE_INSTANCE_ID=$(cat "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" | jq '.[] | select(.apiName=="'"$V7_API_NAME"'" and .apiVersion=="'"$V7_API_VERSION"'")' | jq -rc '.apiServiceInstanceId')
 
+                        logDebug "PRODUCT_NAME=$PRODUCT_NAME - PRODUCT_PLAN_NAME=$PRODUCT_PLAN_NAME - APISERVICE_INSTANCE_ID=$APISERVICE_INSTANCE_ID"
                         if [[ $PRODUCT_NAME != $TBD_VALUE && $PRODUCT_PLAN_NAME != $TBD_VALUE ]] 
                         then
                             # Grant access to the API to Amplify Agents org
@@ -1052,7 +1084,7 @@ migrate_v7_application() {
 
                 # provison the ManageApplication - created only once an accessrequest is added to the application
                 echo "      Provisioning the corresponding Managed application...." >&2
-                MANAGED_APP_NAME=$(providerProvisionManagedApplication "$MKT_APP_ID" "$V7_APP_ID")
+                providerProvisionManagedApplication "$MKT_APP_ID" "$V7_APP_ID"
                 echo "      Managed Application provisioned." >&2
 
                 # reading ManagedApplication encryption key
@@ -1063,17 +1095,20 @@ migrate_v7_application() {
                 # creating credentials
                 echo "      Creating credentials for application $V7_APP_NAME" >&2
 
+                echo "          Getting credentials suffix" >&2
+                CREDENTIAL_SUFFIX=$(cat $MAPPING_DIR/$MAPPING_FILE_NAME | jq  '.[] | select(.ApplicationName=="'"$V7_APP_NAME"'")' | jq -rc '.credentialSuffix')
+
                 echo "          Creating credentials APIKEYS for application $V7_APP_NAME" >&2
                 getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_APIKEY" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" 
-                createAndProvisionCredential "$V7_APP_ID" "$MANAGED_APP_NAME" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" "$CREDENTIAL_TYPE_APIKEY" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
+                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-apikeys.json" "$CREDENTIAL_TYPE_APIKEY" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE" "$CREDENTIAL_SUFFIX"
 
                 echo "          Creating credentials OAUTH for application $V7_APP_NAME" >&2
                 getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_OAUTH" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" 
-                createAndProvisionCredential "$V7_APP_ID" "$MANAGED_APP_NAME" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" "$CREDENTIAL_TYPE_OAUTH" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
+                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-oauth.json" "$CREDENTIAL_TYPE_OAUTH" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE" "$CREDENTIAL_SUFFIX"
 
                 echo "          Creating credentials EXTERNAL for application $V7_APP_NAME" >&2
                 getAPIM_Credentials "$V7_APP_ID" "$CREDENTIAL_TYPE_EXTERNAL" "$LOGS_DIR/app-$V7_APP_ID-external.json" 
-                createAndProvisionCredential "$V7_APP_ID" "$MANAGED_APP_NAME" "$LOGS_DIR/app-$V7_APP_ID-external.json" "$CREDENTIAL_TYPE_EXTERNAL" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE"
+                createAndProvisionCredential "$V7_APP_ID" "$LOGS_DIR/app-$V7_APP_ID-external.json" "$CREDENTIAL_TYPE_EXTERNAL" "$MKT_APP_ID" "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json" "$PUBLIC_KEY_FILE" "$CREDENTIAL_SUFFIX"
 
                 # clean up intermediate files
                 rm -rf $LOGS_DIR/app-"$V7_APP_ID"-apikeys.json
@@ -1098,7 +1133,7 @@ migrate_v7_application() {
 
     done
 
-    rm -rf "$TEMP_FILE"
+    deleteFile "$TEMP_FILE"
 }
 
 #########

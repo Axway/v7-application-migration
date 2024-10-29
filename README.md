@@ -106,6 +106,7 @@ For each application, we have the owning team (could be empty and the migration 
 {
     "ApplicationName": "v7 APPLICATION NAME 1",
     "owningConsumerTeam": "TEAM WHO IS OWNING THE SUBSCRIPTION",
+    "credentialSuffix": "",
     "Mapping": [
         {
             "apiName": "v7 API NAME 1",
@@ -194,6 +195,20 @@ Once the script find an application that needs to be migrated (not part of the A
   * add the hashing value the discovery agent would put on the credentials
   * set the credentials as provisioned
 * **Update the V7 app name** using the Marketplace Application logical name (internal name not visible to the Marketplace users) so that Traceability Agent will be able to correctly correlate the traffic to the appropriate Marketplace subscription/application.
+
+NOTE for credential creation:
+
+In the mapping file, the *credentialSuffix* is there to help distinguish credential from various environment on the same application.
+By default credentials name is built using the following name convention {credentialType}_{COUNTER}_{credentialSuffixValue} with:
+
+* credentialType: "API_KEY" or "OAUTH" or "EXTERNAL"
+* COUNTER: a incremental number starting with 0
+* credentialSuffixValue: the value of credentialSuffix variable from the mapping file
+
+Possible output:
+
+* APIKEY_0_DEV
+* EXTERNAL_0_PROD, EXTERNAL_1_PROD
 
 ### Step 5 - re-start the Discovery and Traceability agents running in the environment
 
