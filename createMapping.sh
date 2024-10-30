@@ -185,7 +185,15 @@ function findProductInformation() {
     if [[ $noError == 1 ]]
     then
         # clean up intermediate files when no errors occured
-        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"*.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-asset.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-asset-resources.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-filtered.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-instance.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-product-plan-filtered.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-product-plan-quota.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-product-plans.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-product.json
+        deleteFile $LOGS_DIR/api-srv-"$V7_API_ID"-search.json
     fi
 
     # compute final result
