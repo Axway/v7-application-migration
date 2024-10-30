@@ -543,7 +543,7 @@ function findCredentialRequestDefinition() {
 
     for (( MAPPING=0; MAPPING<$MAPPING_NUMBER; MAPPING++ )) ; {
         # extract information
-        MAPPING_VALUE=$(cat $APP_MAPPING | jq -rc '.['$i']')
+        MAPPING_VALUE=$(cat $APP_MAPPING | jq -rc '.['$MAPPING']')
 #        logDebug "$i = $MAPPING_VALUE"
 
         CRD_ID=$(echo $MAPPING_VALUE | jq -r '.credentialRequestDefinitionId')
