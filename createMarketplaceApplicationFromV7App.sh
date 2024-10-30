@@ -541,7 +541,7 @@ function findCredentialRequestDefinition() {
     # find CRDs from mapping file
     MAPPING_NUMBER=`jq length $APP_MAPPING`
 
-    for (( MAPPING=0; i<$MAPPING_NUMBER; MAPPING++ )) ; {
+    for (( MAPPING=0; MAPPING<$MAPPING_NUMBER; MAPPING++ )) ; {
         # extract information
         MAPPING_VALUE=$(cat $APP_MAPPING | jq -rc '.['$i']')
 #        logDebug "$i = $MAPPING_VALUE"
