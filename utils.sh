@@ -177,7 +177,7 @@ function getAPIM_API_Info()
     getFromApiManager "proxies/$V7_API_ID" "$LOGS_DIR/api-$V7_API_ID.json"
 	retVal=$(cat "$LOGS_DIR/api-$V7_API_ID.json" | jq -rc '{name: .name, retired: .retired, version: .version}')
 
-	deleteFile "$LOGS_DIR/api-$V7_API_ID.json"
+	deleteFile $LOGS_DIR/api-"$V7_API_ID".json
 
 	echo "$retVal"
 }
