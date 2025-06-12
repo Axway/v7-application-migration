@@ -18,6 +18,7 @@ Please take a moment to watch our Enterprise Marketplace intro tutorial at <http
 * [curl](https://curl.se/)
 * Access to API Manager APIs endpoint
 * Access to Amplify Entreprise Marketplace APIs
+* Some products and product plans created on top of the discovered APIs.
 
 ## Concepts
 
