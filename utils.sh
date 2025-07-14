@@ -139,8 +139,10 @@ function isPlatformTeamExisting() {
     if [[ $TEAM_GUID_TMP != "" ]] 
     then
         #Output: Team GUID:    d9120f39-88d1-4977-bc56-5dd7d7335a18
-        # return only GUID
-        TEAM_GUID=${TEAM_GUID_TMP:14}
+		# removing any ANSI character coming from syntax coloring.        
+		TEAM_GUID_CLEANED=$(echo "$TEAM_GUID_TMP" | sed -r 's/\x1B\[[0-9;]*[mK]//g')
+		# keep only the value
+		TEAM_GUID=${TEAM_GUID_CLEANED:14}     
     fi
 
 	rm -rf $LOGS_DIR/team.txt
