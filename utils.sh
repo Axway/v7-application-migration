@@ -1,6 +1,6 @@
 # some variables
-CREDENTIAL_TYPE_APIKEY="APIKEY"
-CREDENTIAL_TYPE_OAUTH="OAUTH"
+CREDENTIAL_TYPE_APIKEY="APIKey"
+CREDENTIAL_TYPE_OAUTH="Oauth"
 CREDENTIAL_TYPE_EXTERNAL="EXTERNAL"
 TBD_VALUE="TBD"
 CREDENTIAL_DEFINTION_BASIC_AUTH="http-basic"
@@ -98,11 +98,10 @@ function check_if_token_still_active()
 
 	# warning, if a command succeed, the return object is an array but for error, the return object is an object...
 	jsonFileType=`jq -r type $1`
-	echo $jsonFileType
 
 	if [[ "$jsonFileType" == "object" ]]
 	then
-		# it should be an error...
+		# it should be an error... but it could be not so default to "NoErrorFound".
 		errorFound=`cat $1 | jq -r '.errors // "NoErrorFound"'`
 		if [[ $errorFound != "NoErrorFound" ]]
 		then
@@ -173,15 +172,8 @@ function isPlatformTeamExisting() {
     TEAM_GUID=""
 
     # read the team
-    axway team view $ORG_ID "$TEAM_NAME" > "$LOGS_DIR/team.txt"
-    TEAM_GUID_TMP=$(cat "$LOGS_DIR/team.txt" | grep "Team GUID")
-
-    if [[ $TEAM_GUID_TMP != "" ]] 
-    then
-        #Output: Team GUID:    d9120f39-88d1-4977-bc56-5dd7d7335a18
-        # return only GUID
-        TEAM_GUID=${TEAM_GUID_TMP:14}
-    fi
+    axway team view $ORG_ID "$TEAM_NAME" --json > "$LOGS_DIR/team.json"
+    TEAM_GUID=$(cat "$LOGS_DIR/team.json" | jq -r '.team.guid')
 
 	rm -rf $LOGS_DIR/team.txt
     echo $TEAM_GUID

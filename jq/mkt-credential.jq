@@ -1,7 +1,10 @@
 {
   "title": $credentialTitle,
   "credentialRequestDefinition": {
-    "id": $credentialrequestdefinition
-  },
+        "crdId": {
+            "id": $credentialRequestDefinitionID
+        },
+        "crdType": $credentialType
+    },
   "data": {}
 }
