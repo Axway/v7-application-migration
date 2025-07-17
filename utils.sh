@@ -133,17 +133,10 @@ function isPlatformTeamExisting() {
     TEAM_GUID=""
 
     # read the team
-    axway team view $ORG_ID "$TEAM_NAME" > "$LOGS_DIR/team.txt"
-    TEAM_GUID_TMP=$(cat "$LOGS_DIR/team.txt" | grep "Team GUID")
+    axway team view $ORG_ID "$TEAM_NAME" --json > "$LOGS_DIR/team.json"
+    TEAM_GUID=$(cat "$LOGS_DIR/team.json" | jq -r '.team.guid')
 
-    if [[ $TEAM_GUID_TMP != "" ]] 
-    then
-        #Output: Team GUID:    d9120f39-88d1-4977-bc56-5dd7d7335a18
-        # return only GUID
-        TEAM_GUID=${TEAM_GUID_TMP:14}
-    fi
-
-	rm -rf $LOGS_DIR/team.txt
+	rm -rf $LOGS_DIR/team.json
     echo $TEAM_GUID
 }
 
