@@ -175,7 +175,7 @@ function isPlatformTeamExisting() {
     axway team view $ORG_ID "$TEAM_NAME" --json > "$LOGS_DIR/team.json"
     TEAM_GUID=$(cat "$LOGS_DIR/team.json" | jq -r '.team.guid')
 
-	rm -rf $LOGS_DIR/team.txt
+	rm -rf $LOGS_DIR/team.json
     echo $TEAM_GUID
 }
 
