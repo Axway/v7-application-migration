@@ -16,7 +16,7 @@ CREDENTIAL_HASH_3_PARAM="3"
 QUERY_RETURN_VALUE_LIMIT=30
 
 # For debugging purpose
-DEBUG=1
+DEBUG=0
 
 # For keeping files
 KEEP_FILE=0
