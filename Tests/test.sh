@@ -324,6 +324,45 @@ testGetAPIM_API_Info()
     getAPIM_API_Info "a6814243-cb9c-4e9b-936d-3042d3dad459"
 }
 
+testQueryRetryWhenNotLogged()
+{
+    DEBUG=1
+    loginToPlatform
+    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/apiservices" "" "$LOGS_DIR/test-search.json"
+    error_exit "I S S U E" "$LOGS_DIR/test-search.json"
+
+    axway auth logout --all
+    getFromCentralWithRetry "$CENTRAL_URL/apis/management/v1alpha1/apiservices?query=title=='TOTO'" "" "$LOGS_DIR/test-search2.json"
+
+}
+
+testRefreshToken()
+{
+    KEEP_FILE=1
+    # test logged headless - config in the environment file
+    loginToPlatform
+    refreshToken
+
+    # test logged from browser
+    CLIENT_ID=""
+    CLIENT_SECRET=""
+    loginToPlatform
+    refreshToken
+}
+
+testTiming() 
+{   	
+	debut=$(date +%s)
+	axway auth list --json > "$LOGS_DIR/session.json"
+	PLATFORM_ORGID=$(cat "$LOGS_DIR/session.json" | jq -r '.[0] .org .id')
+	PLATFORM_TOKEN=$(cat "$LOGS_DIR/session.json" | jq -r '.[0] .auth .tokens .access_token ')
+	ORGANIZATION_REGION=$(cat "$LOGS_DIR/session.json" | jq -r '.[0] .org .region ')
+	USER_GUID=$(cat "$LOGS_DIR/session.json" | jq -r '.[0] .user .guid ')
+	fin=$(date +%s)
+	duree=$((fin - debut))
+	echo "Temps écoulé optim: $duree secondes"
+}
+
 ################# MAIN #################
 #testHashingCredential
 #testSanitizingAppName
@@ -343,4 +382,6 @@ testGetAPIM_API_Info()
 #loginFromApi
 #testMarketplaceRetrieval
 #testGetAPIM_API_Info
-testAPIisRetired
+#testAPIisRetired
+#testQueryRetryWhenNotLogged
+testRefreshToken
