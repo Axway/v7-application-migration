@@ -44,10 +44,19 @@ testIsPlatformTeamExisting() {
     loginToPlatform
     TEAM_NAME="API Development"
     TEAM_GUID=$(isPlatformTeamExisting $PLATFORM_ORGID "$TEAM_NAME")
-    echo "FoundTeamGuid:$TEAM_GUID"
+    echo "$TEAM_NAME has guid=$TEAM_GUID"
+    refreshToken
+
+    refreshToken
+    refreshToken
+
+    TEAM_NAME="Vertex"
+    TEAM_GUID=$(isPlatformTeamExisting $PLATFORM_ORGID "$TEAM_NAME")
+    echo "$TEAM_NAME has guid=$TEAM_GUID"
+
     TEAM_NAME="API Development fake"
     TEAM_GUID=$(isPlatformTeamExisting $PLATFORM_ORGID "$TEAM_NAME")
-    echo "FoundTeamGuid:$TEAM_GUID"
+    echo "$TEAM_NAME has guid=$TEAM_GUID"
 }
 
 testSanitizingAppName() {
@@ -342,12 +351,20 @@ testRefreshToken()
     # test logged headless - config in the environment file
     loginToPlatform
     refreshToken
+    axway auth logout --all
+
+    echo "we should be logged out"
+	echo ">>>TOKEN BEFORE: $PLATFORM_TOKEN"
+    refreshToken
+	echo ">>>TOKEN AFTER : $PLATFORM_TOKEN"
+    getFromCentral "$CENTRAL_URL/apis/management/v1alpha1/apiservices" "" "$LOGS_DIR/test-search-afterTokenRefreshed.json"
+
 
     # test logged from browser
     CLIENT_ID=""
     CLIENT_SECRET=""
-    loginToPlatform
-    refreshToken
+#    loginToPlatform
+#    refreshToken
 }
 
 testTiming() 
@@ -384,4 +401,4 @@ testTiming()
 #testGetAPIM_API_Info
 #testAPIisRetired
 #testQueryRetryWhenNotLogged
-testRefreshToken
+#testRefreshToken

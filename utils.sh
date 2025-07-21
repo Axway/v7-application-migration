@@ -120,11 +120,13 @@ function refreshToken()
 		curl -s -k -H "Content-Type: application/x-www-form-urlencoded" $TOKEN_URL -d "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET" > $FILE_TOKEN_RESULT
 	fi
 
-	PLATFORM_TOKEN=$(cat $FILE_TOKEN_RESULT | jq -r '.access_token')
-	#logDebug "	New token: $PLATFORM_TOKEN"
+#	logDebug "	>>>TOKEN BEFORE: $PLATFORM_TOKEN"
+	NEW_TOKEN=$(cat $FILE_TOKEN_RESULT | jq -r '.access_token')
+#	logDebug "	>>>TOKEN AFTER : $NEW_TOKEN"
 	deleteFile $FILE_TOKEN_RESULT
 
 	logDebug "	Token refreshed."
+	echo "$NEW_TOKEN"
 }
 
 ##########################################
@@ -134,7 +136,7 @@ function refreshToken()
 # - 1: the query need to be re-processed #
 # - 0: it is OK.                         #
 ##########################################
-function check_if_token_still_active_and_refresh_if_needed()
+function checkIfTokenStillActive()
 {
 	# we assume the token is still valid and there is no need to re-run previous query
 	local needToReprocess=0
@@ -157,14 +159,14 @@ function check_if_token_still_active_and_refresh_if_needed()
 			if [[ $error401 == 401 ]]
 			then
 				# it is an authentication issue, need to refresh the current token..."
-				logDebug "Checking token - ** Trying to refresh existing token **" >&2
-				refreshToken
-				needToReprocess=1
+#				logDebug "Checking token - refreshing existing token **" >&2
+#				PLATFORM_TOKEN=$(refreshToken)
+				needToRefreshToken=1
 			fi
 		fi
 	fi
 
-	echo $needToReprocess
+	echo $needToRefreshToken
 }
 
 ############################
@@ -214,16 +216,15 @@ function loginToPlatform {
 #######################################
 function isPlatformTeamExisting() {
 
-    ORG_ID=$1
-    TEAM_NAME="$2"
+    local ORG_ID=$1
+    local TEAM_NAME="$2"
     # for now we assume we did not find it.
     TEAM_GUID=""
 
     # read the team
-    axway team view $ORG_ID "$TEAM_NAME" --json > "$LOGS_DIR/team.json"
-    TEAM_GUID=$(cat "$LOGS_DIR/team.json" | jq -r '.team.guid')
+	TEAM_GUID=$(axway team list $ORG_ID --json | jq -r '.teams[] | select (.name=="'"$TEAM_NAME"'")' | jq -r '.guid')
 
-	rm -rf $LOGS_DIR/team.json
+	logDebug "Team ($TEAM_NAME) found => GUID=$TEAM_GUID"
     echo $TEAM_GUID
 }
 
@@ -468,11 +469,14 @@ function getFromMarketplace() {
 	curl -s -k -L $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN > "$outputFile"
 
 	# check output file to find a connectivity issue, and in that case re-log.
-	needToRetry=$(check_if_token_still_active_and_refresh_if_needed $outputFile)
+	needToRetry=$(checkIfTokenStillActive $outputFile)
 
 	if [[ $needToRetry == 1 ]]
 	then
-		echo "New attempt after refreshing token...."
+		logDebug "** Refreshing existing token **" >&2
+		PLATFORM_TOKEN=$(refreshToken)
+		logDebug "getFromMarketplace - New attempt after refreshing token...."
+#		logDebug "Token=$PLATFORM_TOKEN"
 		curl -s -k -L $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN > "$outputFile"
 	fi
 
@@ -504,11 +508,14 @@ function postToMarketplace() {
 	curl -s -k -L $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN -d "`cat $2`" > $outputFile
 
 	# check output file to find a connectivity issue, and in that case re-log.
-	needToRetry=$(check_if_token_still_active_and_refresh_if_needed $outputFile)
+	needToRetry=$(checkIfTokenStillActive $outputFile)
 
 	if [[ $needToRetry == 1 ]]
 	then
-		echo "New attempt after refreshing token...."
+		logDebug "** Refreshing existing token **" >&2
+		PLATFORM_TOKEN=$(refreshToken)
+		logDebug "postToMarketplace - New attempt after refreshing token...."
+#		logDebug "Token=$PLATFORM_TOKEN"
 		curl -s -k -L $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN -d "`cat $2`" > $outputFile
 	fi
 
@@ -604,16 +611,18 @@ function getFromCentral() {
 
 	curl -s -k -L "$1" -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN > "$outputFile"
 
-	# check output file to find a connectivity issue, and in that case re-log.
-	logDebug "Check if still logged..."
-	needToRetry=$(check_if_token_still_active_and_refresh_if_needed $outputFile)
+	# check output file to find a connectivity issue, and in that case refresh the token.
+	logDebug "Check if token still active..."
+	needToRetry=$(checkIfTokenStillActive $outputFile)
 	logDebug "Retry previous query needed? - $needToRetry"
 
 
 	if [[ $needToRetry == 1 ]]
 	then
-		logDebug "New attempt after refreshing token...."
-		echo "New attempt after refreshing token...."
+		logDebug "** Refreshing existing token **" >&2
+		PLATFORM_TOKEN=$(refreshToken)
+		logDebug "getFromCentral - New attempt after refreshing token...."
+#		logDebug "Token=$PLATFORM_TOKEN"
 		curl -s -k -L "$1" -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN > "$outputFile"
 	fi
 
@@ -646,11 +655,14 @@ function putToCentral() {
 	curl -s -X PUT $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN -d "`cat $2`" > $outputFile
 
 	# check output file to find a connectivity issue, and in that case re-log.
-	needToRetry=$(check_if_token_still_active_and_refresh_if_needed $outputFile)
+	needToRetry=$(checkIfTokenStillActive $outputFile)
 
 	if [[ $needToRetry == 1 ]]
 	then
-		echo "New attempt after refreshing token...."
+		logDebug "** Refreshing existing token **" >&2
+		PLATFORM_TOKEN=$(refreshToken)
+		logDebug "putToCentral - New attempt after refreshing token...."
+#		logDebug "Token=$PLATFORM_TOKEN"
 		curl -s -X PUT $1 -H "Content-Type: application/json" -H "X-Axway-Tenant-Id: $PLATFORM_ORGID" --header 'Authorization: Bearer '$PLATFORM_TOKEN -d "`cat $2`" > $outputFile
 	fi
 
