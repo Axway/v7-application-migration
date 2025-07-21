@@ -1,6 +1,6 @@
 # some variables
-CREDENTIAL_TYPE_APIKEY="APIKEY"
-CREDENTIAL_TYPE_OAUTH="OAUTH"
+CREDENTIAL_TYPE_APIKEY="APIKey"
+CREDENTIAL_TYPE_OAUTH="Oauth"
 CREDENTIAL_TYPE_EXTERNAL="EXTERNAL"
 TBD_VALUE="TBD"
 CREDENTIAL_DEFINTION_BASIC_AUTH="http-basic"
@@ -96,7 +96,8 @@ function loginToPlatform {
 		axway auth login
 	else
 		echo "Service account supplied => login headless" >&2
-		axway auth login --client-id $CLIENT_ID --secret-file "$CLIENT_SECRET"
+		#axway auth login --client-id $CLIENT_ID --secret-file "$CLIENT_SECRET"
+		axway auth login --client-id $CLIENT_ID --client-secret "$CLIENT_SECRET"
 	fi
 
     error_exit "Problem with authentication to your account. Please, verify your credentials"
