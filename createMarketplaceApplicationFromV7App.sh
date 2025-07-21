@@ -792,7 +792,7 @@ function createAndProvisionCredential () {
                     echo "              Credential not found, creating it..." >&2
 
                     # generate credential payload...
-                    jq -n -f ./jq/mkt-credential.jq --arg credentialTitle "$CREDENTIAL_TITLE" --arg credentialrequestdefinition "$CREDENTIAL_REQUEST_DEFINIITON" > "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json"
+                    jq -n -f ./jq/mkt-credential.jq --arg credentialTitle "$CREDENTIAL_TITLE" --arg credentialRequestDefinitionID "$CREDENTIAL_REQUEST_DEFINIITON" --arg credentialType "$CREDENTIAL_TYPE"> "$LOGS_DIR/mkt-application-$MKT_APP_ID-credential-$CREDENTIAL_ID.json"
 
                     # add any mandatory information just for the query to not fail
 #                    logDebug "Finding fields for CRD ($CREDENTIAL_REQUEST_DEFINIITON)...."
