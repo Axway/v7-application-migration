@@ -330,7 +330,7 @@ function createMarketplaceAccessRequestIfNotExisting() {
 
     MKT_PDT_RESOURCE_NUMBER=`cat "$LOG_FILE" | jq -rc '.totalCount'`
 
-    if [[ $MKT_PDT_RESOURCE_NUMBER > $QUERY_RETURN_VALUE_LIMIT ]]
+    if [[ $MKT_PDT_RESOURCE_NUMBER -gt $QUERY_RETURN_VALUE_LIMIT ]]
     then
         echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the environment with a greater value than: $MKT_PDT_RESOURCE_NUMBER. Then restart the migration procedure." >&2
         exit -1
@@ -349,9 +349,9 @@ function createMarketplaceAccessRequestIfNotExisting() {
 
             ACCESS_REQUEST_RESULT=$(cat "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json" | jq -rc '.totalCount')
 
-            if [[ $ACCESS_REQUEST_RESULT > $QUERY_RETURN_VALUE_LIMIT ]]
+            if [[ $ACCESS_REQUEST_RESULT -gt $QUERY_RETURN_VALUE_LIMIT ]]
             then
-                echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the enviornment with a greater value than: $ACCESS_REQUEST_RESULT. Then restart the migration procedure." >&2
+                echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the environment with a greater value than: $ACCESS_REQUEST_RESULT. Then restart the migration procedure." >&2
                 exit -1
             fi
 
