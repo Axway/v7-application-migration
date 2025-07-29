@@ -45,10 +45,12 @@ testIsPlatformTeamExisting() {
     TEAM_NAME="API Development"
     TEAM_GUID=$(isPlatformTeamExisting $PLATFORM_ORGID "$TEAM_NAME")
     echo "$TEAM_NAME has guid=$TEAM_GUID"
-    refreshToken
-
-    refreshToken
-    refreshToken
+    
+    echo "Refreshing token starts"
+    refreshToken >/dev/null
+    refreshToken >/dev/null
+    refreshToken >/dev/null
+    echo "Refreshing token ends"
 
     TEAM_NAME="Vertex"
     TEAM_GUID=$(isPlatformTeamExisting $PLATFORM_ORGID "$TEAM_NAME")
@@ -297,6 +299,7 @@ loginFromApi() {
 	echo "$CENTRAL_URL"
 	echo "OK we are good."
 
+#     curl -s --location "https://platform.axway.com/api/v1/auth/findSession"
 }
 
 testMarketplaceRetrieval() {
