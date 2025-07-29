@@ -257,6 +257,7 @@ function createMarketplaceSubscriptionIfNotExisting() {
     # we assume a subscription does not exist
     local CAN_CREATE_SUBSCRIPTION=1
 
+#    logDebug "              TeamGuid=$TEAM_GUID / ProductID=$MP_PRODUCT_ID / PlanID=$MP_PRODUCT_PLAN_ID"
     echo "              Checking if owning team ($TEAM_NAME) already has a subscription for product ($MP_PRODUCT_NAME) using plan ($MP_PRODUCT_PLAN_NAME)" >&2
     getFromMarketplace "$MARKETPLACE_URL/api/v1/subscriptions?product.id=$MP_PRODUCT_ID" "" "$LOGS_DIR/mkt-subscription-product-$SANITIZE_PRODUCT_NAME-search.json"
     NB_SUBSCRIPTION=`cat "$LOGS_DIR/mkt-subscription-product-$SANITIZE_PRODUCT_NAME-search.json" | jq -r '.totalCount'`
@@ -265,6 +266,7 @@ function createMarketplaceSubscriptionIfNotExisting() {
     then
         # we can search within the list
         MP_SUBSCRIPTION_ID=`cat "$LOGS_DIR/mkt-subscription-product-$SANITIZE_PRODUCT_NAME-search.json" | jq '[ .items[] | select( .plan.id=="'$MP_PRODUCT_PLAN_ID'" and .owner.id=="'$TEAM_GUID'" ) ]' | jq -r '.[0].id'`
+#        logDebug "              SubscriptionID found:$MP_SUBSCRIPTION_ID"
 
         # subscription not found?
         if [[ $MP_SUBSCRIPTION_ID != null ]]
@@ -328,7 +330,7 @@ function createMarketplaceAccessRequestIfNotExisting() {
 
     MKT_PDT_RESOURCE_NUMBER=`cat "$LOG_FILE" | jq -rc '.totalCount'`
 
-    if [[ $MKT_PDT_RESOURCE_NUMBER > $QUERY_RETURN_VALUE_LIMIT ]]
+    if [[ $MKT_PDT_RESOURCE_NUMBER -gt $QUERY_RETURN_VALUE_LIMIT ]]
     then
         echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the environment with a greater value than: $MKT_PDT_RESOURCE_NUMBER. Then restart the migration procedure." >&2
         exit -1
@@ -347,9 +349,9 @@ function createMarketplaceAccessRequestIfNotExisting() {
 
             ACCESS_REQUEST_RESULT=$(cat "$LOGS_DIR/mkt-application-$SANITIZE_APPLICATION_NAME-access-$MP_ASSETRESOURCE_ID-search.json" | jq -rc '.totalCount')
 
-            if [[ $ACCESS_REQUEST_RESULT > $QUERY_RETURN_VALUE_LIMIT ]]
+            if [[ $ACCESS_REQUEST_RESULT -gt $QUERY_RETURN_VALUE_LIMIT ]]
             then
-                echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the enviornment with a greater value than: $ACCESS_REQUEST_RESULT. Then restart the migration procedure." >&2
+                echo "---<<WARNING>> The query returned paginated results. Please add the QUERY_LIMIT=XX variable in the environment with a greater value than: $ACCESS_REQUEST_RESULT. Then restart the migration procedure." >&2
                 exit -1
             fi
 

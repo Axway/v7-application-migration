@@ -1,5 +1,6 @@
 Logs
 Config/envLBEAN*.properties
+Config/lbean004.properties
 Config/envHM.properties
 Config/envPHX12.properties
 Mapping/BCBSMNSalesTech.json
@@ -7,5 +8,6 @@ Mapping/mappingApi*.json
 Mapping/mapping-*.json
 Mapping/test-CB*.json
 Mapping/mapping-Sample-Retired.json
+Mapping/mappingFile.txt
 notes.txt
 Tests/readme.txt
