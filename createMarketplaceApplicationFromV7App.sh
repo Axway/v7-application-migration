@@ -997,12 +997,9 @@ migrate_v7_application() {
             ## Application management ##
             MKT_APP_ID=$(createMarketplaceApplicationIfNotExisting "$V7_APP_NAME" $TEAM_GUID)
 
-            ## Subscription Management ##
-            echo "      Creating access request for application $V7_APP_NAME" >&2
-
-            # retieve mappings associated to the Application
-            echo "      Searching mapping assigned to the Application..." >&2
-            cat $MAPPING_DIR/$MAPPING_FILE_NAME | jq  '.[] | select(.ApplicationName=="'"$V7_APP_NAME"'")' | jq -rc '.Mapping' >  "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json"
+            # retieve mappings associated to the Application /!\ should take (AppName / TeamName) as there could be mulitple app with same name but owned by different teams
+            echo "      Searching mapping assigned to the Application $V7_APP_NAME owned by $v7_ORG_NAME..." >&2
+            cat $MAPPING_DIR/$MAPPING_FILE_NAME | jq  '.[] | select(.ApplicationName=="'"$V7_APP_NAME"'" and .owningConsumerTeam=="'"$v7_ORG_NAME"'")' | jq -rc '.Mapping' >  "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json"
 
             # check there is some mapping
             if [[ `jq length "$LOGS_DIR/mapping-$V7_APP_NAME_SANITIZED.json"` != "" ]]
