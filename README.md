@@ -11,7 +11,7 @@ The script needs to be run in a machine where Axway API Manager and Amplify Ente
 But before you start with the migration, we recommend you get yourself familiarized with the Amplify Enterprise Marketplace.
 Please take a moment to watch our Enterprise Marketplace intro tutorial at <https://university.axway.com/learn/courses/11665/introduction-to-amplify-enterprise-marketplace>. You can also access our documentation at <https://docs.axway.com/bundle/amplify-central/page/docs/index.html>.
 
-## Pre-requisits
+## Pre-requisites
 
 * [Axway CLI](https://docs.axway.com/bundle/amplify-central/page/docs/integrate_with_central/cli_central/index.html)
 * [jq](https://jqlang.github.io/jq/)
