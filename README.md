@@ -240,7 +240,7 @@ To add debugging information, use the `logDebug` function as follow: `logDebug "
 
 #### Subscription cannot be created
 
-Be aware that for Free plan, each team only have one subscription possible to avoid abusing if such plan.
+Be aware that for Free plan, each team only have one subscription possible to avoid abusing such plan.
 
 ### Known issue - same API used in multiple applications
 
