@@ -18,7 +18,7 @@ Please take a moment to watch our Enterprise Marketplace intro tutorial at <http
 * [curl](https://curl.se/)
 * Access to API Manager APIs endpoint
 * Access to Amplify Entreprise Marketplace APIs
-* Some products and product plans created on top of the discovered APIs.
+* **Some products and product plans created on top of the discovered APIs.**
 
 ## Concepts
 
@@ -177,7 +177,11 @@ Run the `createMarketplaceApplicationFromV7App.sh` script
 
 Be default the script uses env.properties from the Config directory but you can pass the file name as an argument to the script: `createMarketplaceApplicationFromV7App.sh ./Config/envLbean018.properties`
 
-Also it is possible to run the script for only 1 application instead of all applications.
+Also it is possible to run the script for only 1 application instead of all applications. For that, add the `APP_NAME_TO_MIGRATE` variable in your configuration file. Sample:
+
+```bash
+APP_NAME_TO_MIGRATE="My application to migrate"
+```
 
 The script ignore all application present in the Amplify Agent organization
 
@@ -187,7 +191,7 @@ Once the script find an application that needs to be migrated (not part of the A
 * create the Marketplace application if it does not exists yet or reused the existing one
 * create the Marketplace subscription using the information from the mapping file
 * approve the subscription (if subscription approval is manually set)
-* for each API accessible from the Application:
+* for each API accessible from the Application that are not retired:
   * create the Marketplace access request
     * approve the access request (if access request is manually approved)
     * set the access request as provisioned
@@ -218,3 +222,26 @@ Once the migration is finished, you have to delete the agent cache directory for
 Restart the agents
 
 Refer to the Agent start command based on you current deployment (executable / Docker / Helm)
+
+## Troubleshooting
+
+Whenever the script crash, it is recommended to stop it manually by pressing `CTRL + C` keys to avoid farther issues.
+
+Once stopped, and the issue understood/corrected, the script can be re-started. It is smart enough to ensure that previous steps have been executed correctly and pursue the migration. For instance, if you are not sure of your mapping, it is possible to leave the TBD values, run the script a first time. Then update the mapping and run the script a second time. Everything done the first time will not be updated again but only the new things will be processed.
+
+### Debugging information
+
+`utils.sh` script contain a variable to output additional information: refer to `DEBUG` variable in `utils.sh` script and set its value to 1: `DEBUG=1`
+This will output some information in the following format: `DEBUG- my debugging message`
+
+To add debugging information, use the `logDebug` function as follow: `logDebug "message to show in debug only"`
+
+### What issue can I encounter?
+
+#### Subscription cannot be created
+
+Be aware that for Free plan, each team only have one subscription possible to avoid abusing if such plan.
+
+### Known issue - same API used in multiple applications
+
+A single API coming from a product and 1 subscription cannot be accessed by multiple applications because in that case, each individual application will get the full quota of the subscription and consequently the quota can be over used. In that situation several subscriptions would be required but script cannot select which application to use.
